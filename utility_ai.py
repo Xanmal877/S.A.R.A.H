@@ -176,8 +176,6 @@ class EnhancedLearningUtilityAI:
 
                 "timestamp": datetime.now().isoformat(),
 
-                "has_youtube_indicators": self._has_youtube_indicators(visible_text)
-
             }
 
             

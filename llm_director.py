@@ -1,35 +1,11 @@
 import sys
-
+import ollama
 from typing import Tuple
 
 from utility_ai import EnhancedLearningUtilityAI
 
 
-
-# Ollama import
-
-try:
-
-    import ollama
-
-    HAS_OLLAMA = True
-
-except ImportError:
-
-    HAS_OLLAMA = False
-
-    print("❌ Ollama not available - Sarah needs LLM director")
-
-    sys.exit(1)
-
-
-
-class EnhancedExperientialLLMDirector:
-
-    """Enhanced LLM director with better action strategy"""
-
-    
-
+class EXPDirector:
     def __init__(self):
 
         self.client = None
@@ -43,13 +19,6 @@ class EnhancedExperientialLLMDirector:
     def _initialize(self):
 
         """Initialize Ollama connection"""
-
-        if not HAS_OLLAMA:
-
-            raise Exception("Ollama required for LLM director")
-
-        
-
         try:
 
             self.client = ollama.Client(host='http://localhost:11434')
@@ -64,12 +33,8 @@ class EnhancedExperientialLLMDirector:
 
     
 
-    def process_user_command(self, user_command: str, utility_ai: EnhancedLearningUtilityAI) -> bool:
-
+    def ProcessUserCommand(self, user_command: str, utility_ai: EnhancedLearningUtilityAI) -> bool:
         """Process user command using enhanced experiential learning"""
-
-        
-
         print(f"\n{'='*60}")
 
         print(f"🎯 User Goal: {user_command}")
@@ -88,18 +53,6 @@ class EnhancedExperientialLLMDirector:
 
         print(f"📚 Sarah's Knowledge:\n{knowledge_summary}")
 
-        
-
-        # Check if goal already achieved
-
-        if self._is_youtube_goal(user_command) and current_state.get('has_youtube_indicators', False):
-
-            print("✅ Goal already achieved - YouTube is already open!")
-
-            return True
-
-        
-
         # Get strategic recommendations
 
         strategy_recommendations = self._get_strategy_recommendations(user_command, utility_ai.knowledge)
@@ -113,11 +66,6 @@ class EnhancedExperientialLLMDirector:
         initial_prompt = f"""
 
 GOAL: {user_command}
-
-
-
-CURRENT SCREEN: {"YouTube already visible" if current_state.get('has_youtube_indicators', False) else "No YouTube visible"}
-
 
 
 SARAH'S KNOWLEDGE:
@@ -274,10 +222,6 @@ CURRENT SCREEN:
 
 - Visible text: {result.visible_text[:8] if result.visible_text else ['None']}
 
-- YouTube indicators: {result.after_state.get('has_youtube_indicators', False) if result.after_state else False}
-
-
-
 STRATEGY:
 
 - If GOAL ACHIEVED: True → ACTION: COMPLETE
@@ -318,45 +262,8 @@ NEXT ACTION:"""
 
             return False
 
-    
 
-    def _is_youtube_goal(self, goal: str) -> bool:
-
-        """Check if goal is YouTube-related"""
-
-        return 'youtube' in goal.lower()
-
-    
-
-    def _get_strategy_recommendations(self, goal: str, knowledge) -> str:
-
-        """Get strategic recommendations based on goal and knowledge"""
-
-        if self._is_youtube_goal(goal):
-
-            strategies = knowledge.get_youtube_strategy()
-
-            if strategies:
-
-                recommendations = []
-
-                for i, (action, target) in enumerate(strategies[:3], 1):
-
-                    recommendations.append(f"{i}. {action} -> {target}")
-
-                return "\n".join(recommendations)
-
-            else:
-
-                return "1. try_open_app -> youtube\n2. try_open_app -> chrome\n3. try_open_app -> firefox"
-
-        
-
-        return "No specific recommendations - use experimentation"
-
-    
-
-    def _get_enhanced_system_prompt(self) -> str:
+    def GetSystemPrompt(self) -> str:
 
         """Get enhanced system prompt"""
 
@@ -387,28 +294,13 @@ GOAL ACHIEVEMENT LOGIC:
 - Don't repeat exact same failing actions
 
 
-
-ACTION PRIORITY FOR YOUTUBE:
-
-1. If Sarah knows working browsers → open_browser_then_youtube
-
-2. If YouTube app might work → try_open_app: youtube  
-
-3. If browser already open → navigate_to_youtube
-
-4. Experiment with different browsers
-
-
-
 NEVER get stuck in screenshot loops - always try to make progress toward the goal!
-
-
 
 You are action-oriented, strategic, and focused on actual goal achievement."""
 
-    
 
-    def _parse_llm_action(self, response: str) -> Tuple[str, str, str]:
+
+    def ParseLLMAction(self, response: str) -> Tuple[str, str, str]:
 
         """Parse LLM response for action, target, and reasoning"""
 
@@ -460,7 +352,7 @@ You are action-oriented, strategic, and focused on actual goal achievement."""
 
     
 
-    def _get_llm_response(self, system_prompt: str, user_prompt: str) -> str:
+    def GetLLMResponse(self, system_prompt: str, user_prompt: str) -> str:
 
         """Get response from LLM"""
 
