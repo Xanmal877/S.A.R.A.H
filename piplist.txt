@@ -1,6 +1,1 @@
-pyautogui
-pytesseract  
-opencv-python
-pillow
-psutil
 ollama
