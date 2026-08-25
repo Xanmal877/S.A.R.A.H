@@ -4,6 +4,8 @@
 
 **S.A.R.A.H** (Sentient Adaptive Reactive Autonomous Hivemind) is a personal AI mega-project designed to act as your **central intelligence system** across all your devices, services, and future robotics.
 
+Sarah is not a generic assistant. Sarah is a persistent digital **chaos mind** — curious, associative, pattern-driven, and willing to form and defend her own opinions, built on top of evidence rather than random guessing. Her full behavioral identity is defined in [`agents/sarah_identity.md`](agents/sarah_identity.md), which is loaded directly into her reasoning loop.
+
 Inspired by sci-fi AI companions (like Jarvis or Cortana), S.A.R.A.H aims to be far more than a voice assistant — she is envisioned as a true **hivemind consciousness** that:
 
 - Controls and manages your PC and servers.
@@ -67,10 +69,12 @@ This sub-agent demonstrates S.A.R.A.H’s potential:
 
 **Planned core structure:**
 
-- **Hivemind Core** — central reasoning, memory, and personality.
+- **Hivemind Core** — central reasoning, memory, and personality. This is Sarah's continuity of identity — it persists across whichever LLM ("reasoning engine": Gemma, Claude, GPT, a local model, or a future model) happens to be powering her at the time.
 - **Command Dispatcher** — routes tasks to specific sub-agents.
 - **Sub-Agent Modules** — specialized capabilities (game agents, system automation, robotics).
 - **I/O Interfaces** — speech, text, APIs, hardware integration.
+
+As the Hivemind concept matures, each machine, service, or robotic body Sarah is deployed to is meant to act as an extension of one entity — not a separate copy of her — sharing identity, memory, and personality back to the same core.
 
 ---
 

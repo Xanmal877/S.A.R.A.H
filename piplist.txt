@@ -1,1 +1,7 @@
 ollama
+zeroconf
+piper-tts
+sounddevice
+openwakeword
+faster-whisper
+playwright
