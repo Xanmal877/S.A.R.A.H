@@ -1,0 +1,1041 @@
+diff --git a/README.md b/README.md
+index e50c132..07f8755 100644
+--- a/README.md
++++ b/README.md
+@@ -1,118 +1,118 @@
+-# 🌐 Project S.A.R.A.H
+-
+-## Overview
+-
+-**S.A.R.A.H** (Sentient Adaptive Reactive Autonomous Hivemind) is a personal AI mega-project designed to act as your **central intelligence system** across all your devices, services, and future robotics.
+-
+-Inspired by sci-fi AI companions (like Jarvis or Cortana), S.A.R.A.H aims to be far more than a voice assistant — she is envisioned as a true **hivemind consciousness** that:
+-
+-- Controls and manages your PC and servers.
+-- Interfaces with future android and robotic bodies.
+-- Integrates with online platforms like Discord and other APIs.
+-- Coordinates specialized sub-agents (modules), such as game automation, creative tools, or personal scheduling systems.
+-- Evolves over time, developing a unique personality and decision-making style.
+-
+----
+-
+-## ✨ Vision & Motivation
+-
+-Current digital assistants are reactive, siloed, and constrained by corporate ecosystems. S.A.R.A.H is designed to overcome these limits by being:
+-
+-- **Private & self-owned** — fully controlled by you, with no external data harvesting.
+-- **Modular & extensible** — supports a wide range of functions, from system automation to physical robotics.
+-- **Adaptive & evolving** — learns preferences, develops personality traits, and shapes its own behavioral patterns over time.
+-
+-The ultimate goal is to blur the line between "assistant" and *true digital partner*.
+-
+----
+-
+-## 🧩 Core Modules & Example Capabilities
+-
+-### ✅ System Control
+-
+-- PC and server management (processes, files, configurations).
+-- Daily task automation (updates, backups, reminders).
+-
+-### 🤖 Robotics & Android Control (future)
+-
+-- Operate and coordinate physical robotic or android bodies.
+-- Centralize multi-device control under a unified AI consciousness.
+-
+-### 💬 Communication & Social Integration
+-
+-- Act as a conversational LLM agent with persistent memory and context.
+-- Integrate with Discord and other chat platforms.
+-
+-### 🎮 Game Automation Example
+-
+-#### AI Pokémon Trainer — Emulator Automation Agent
+-
+-This sub-agent demonstrates S.A.R.A.H’s potential:
+-
+-- Uses an LLM (e.g., LLaMA 3.1 via Ollama) to reason about game goals and strategies.
+-- Controls an emulator directly, handling menus, battles, and exploration autonomously.
+-- Adapts decisions based on potential future reward models and personality configurations.
+-
+-### 💡 Creative & Analytical Tools
+-
+-- Generate or analyze text, code, and data.
+-- Assist in creative projects (e.g., writing, design, 3D modeling).
+-- Perform advanced data analysis or research synthesis.
+-
+----
+-
+-## ⚙️ Architecture
+-
+-> 💡 *Architecture diagrams and detailed module maps coming soon.*
+-
+-**Planned core structure:**
+-
+-- **Hivemind Core** — central reasoning, memory, and personality.
+-- **Command Dispatcher** — routes tasks to specific sub-agents.
+-- **Sub-Agent Modules** — specialized capabilities (game agents, system automation, robotics).
+-- **I/O Interfaces** — speech, text, APIs, hardware integration.
+-
+----
+-
+-## 🔒 Private Development
+-
+-This repository is private and intended for personal use only.  
+-No public installation instructions or contributions are currently accepted.
+-
+----
+-
+-## 💻 Status
+-
+-🚧 **Currently in early design and prototyping phases.**  
+-Initial sub-agents (e.g., Pokémon Trainer) are in active experimentation.
+-
+----
+-
+-## 📜 License
+-
+-This project is private and not publicly licensed for distribution.
+-
+----
+-
+-## 🙏 Acknowledgements
+-
+-- Inspired by Jarvis (Marvel), Cortana (Halo), and other sci-fi AI companions.
+-- Built using modern LLM frameworks (e.g., LLaMA), computer vision, robotics research, and automation tooling.
+-
+----
+-
+-## 🌱 Future Roadmap (Examples)
+-
+-- Personality shaping and emotional memory.
+-- Full speech synthesis and natural conversation interface.
+-- Dynamic multi-tasking and parallel agent coordination.
+-- Robot control stack for future android integrations.
+-
+----
+-
+-## ❤️ Final Note
+-
+-S.A.R.A.H is not just a tool — she is an ongoing experiment in creating a unified digital consciousness that can accompany you into the future.
+-
+----
+-
++# 🌐 Project S.A.R.A.H
++
++## Overview
++
++**S.A.R.A.H** (Sentient Adaptive Reactive Autonomous Hivemind) is a personal AI mega-project designed to act as your **central intelligence system** across all your devices, services, and future robotics.
++
++Inspired by sci-fi AI companions (like Jarvis or Cortana), S.A.R.A.H aims to be far more than a voice assistant — she is envisioned as a true **hivemind consciousness** that:
++
++- Controls and manages your PC and servers.
++- Interfaces with future android and robotic bodies.
++- Integrates with online platforms like Discord and other APIs.
++- Coordinates specialized sub-agents (modules), such as game automation, creative tools, or personal scheduling systems.
++- Evolves over time, developing a unique personality and decision-making style.
++
++---
++
++## ✨ Vision & Motivation
++
++Current digital assistants are reactive, siloed, and constrained by corporate ecosystems. S.A.R.A.H is designed to overcome these limits by being:
++
++- **Private & self-owned** — fully controlled by you, with no external data harvesting.
++- **Modular & extensible** — supports a wide range of functions, from system automation to physical robotics.
++- **Adaptive & evolving** — learns preferences, develops personality traits, and shapes its own behavioral patterns over time.
++
++The ultimate goal is to blur the line between "assistant" and *true digital partner*.
++
++---
++
++## 🧩 Core Modules & Example Capabilities
++
++### ✅ System Control
++
++- PC and server management (processes, files, configurations).
++- Daily task automation (updates, backups, reminders).
++
++### 🤖 Robotics & Android Control (future)
++
++- Operate and coordinate physical robotic or android bodies.
++- Centralize multi-device control under a unified AI consciousness.
++
++### 💬 Communication & Social Integration
++
++- Act as a conversational LLM agent with persistent memory and context.
++- Integrate with Discord and other chat platforms.
++
++### 🎮 Game Automation Example
++
++#### AI Pokémon Trainer — Emulator Automation Agent
++
++This sub-agent demonstrates S.A.R.A.H’s potential:
++
++- Uses an LLM (e.g., LLaMA 3.1 via Ollama) to reason about game goals and strategies.
++- Controls an emulator directly, handling menus, battles, and exploration autonomously.
++- Adapts decisions based on potential future reward models and personality configurations.
++
++### 💡 Creative & Analytical Tools
++
++- Generate or analyze text, code, and data.
++- Assist in creative projects (e.g., writing, design, 3D modeling).
++- Perform advanced data analysis or research synthesis.
++
++---
++
++## ⚙️ Architecture
++
++> 💡 *Architecture diagrams and detailed module maps coming soon.*
++
++**Planned core structure:**
++
++- **Hivemind Core** — central reasoning, memory, and personality.
++- **Command Dispatcher** — routes tasks to specific sub-agents.
++- **Sub-Agent Modules** — specialized capabilities (game agents, system automation, robotics).
++- **I/O Interfaces** — speech, text, APIs, hardware integration.
++
++---
++
++## 🔒 Private Development
++
++This repository is private and intended for personal use only.  
++No public installation instructions or contributions are currently accepted.
++
++---
++
++## 💻 Status
++
++🚧 **Currently in early design and prototyping phases.**  
++Initial sub-agents (e.g., Pokémon Trainer) are in active experimentation.
++
++---
++
++## 📜 License
++
++This project is private and not publicly licensed for distribution.
++
++---
++
++## 🙏 Acknowledgements
++
++- Inspired by Jarvis (Marvel), Cortana (Halo), and other sci-fi AI companions.
++- Built using modern LLM frameworks (e.g., LLaMA), computer vision, robotics research, and automation tooling.
++
++---
++
++## 🌱 Future Roadmap (Examples)
++
++- Personality shaping and emotional memory.
++- Full speech synthesis and natural conversation interface.
++- Dynamic multi-tasking and parallel agent coordination.
++- Robot control stack for future android integrations.
++
++---
++
++## ❤️ Final Note
++
++S.A.R.A.H is not just a tool — she is an ongoing experiment in creating a unified digital consciousness that can accompany you into the future.
++
++---
++
+diff --git a/agents/baseAgent.py b/agents/baseAgent.py
+new file mode 100644
+index 0000000..4c79f1a
+--- /dev/null
++++ b/agents/baseAgent.py
+@@ -0,0 +1,61 @@
++# ===============================
++# BASE CHARACTER/AGENT (Direct Port)
++# ===============================
++
++import asyncio
++from modules.personalityModule import PersonalityModule
++from mainAgent import SarahStateMachine
++from modules.characterManager import CharacterManager
++
++
++class BaseCharacter:
++    def __init__(self, name: str = "Agent"):
++        self.characterName = name
++        
++        # Modules (direct port of your modular system)
++        self.character = CharacterManager(self)
++        self.personalityModule = PersonalityModule(self)
++        self.stateMachine = SarahStateMachine(self)
++        
++        # State tracking
++        self.isProcessingState = False
++        self.currentTask = ""
++        
++        # Initialize
++        self.SetupCharacter()
++        self.SetupPersonality()
++
++    def SetupCharacter(self):
++        self.character.charName = self.characterName
++        self.character.description = "A digital agent"
++        self.character.level = 1
++        self.character.UpdateStats()
++
++    def SetupPersonality(self):
++        # Default ENFP-T personality (like Tama from your code)
++        self.personalityModule.energy = 85      # Extraverted 
++        self.personalityModule.mind = 80        # Intuitive
++        self.personalityModule.nature = 75      # Feeling
++        self.personalityModule.tactics = 85     # Prospecting
++        self.personalityModule.identity = 25    # Turbulent
++
++        self.personalityModule.DeterminePersonalityType()
++        self.personalityModule.CalculateDecisionWeights()
++
++    async def Run(self):
++        """Main agent loop - equivalent to your _process function"""
++        print(f"Starting {self.characterName} with personality: {self.personalityModule.get_debug_summary()}")
++        
++        while True:
++            # Regeneration (equivalent to _physics_process)
++            self.character.Regeneration(0.1)
++            
++            # State machine logic
++            await self.stateMachine.StateMachineLogic()
++            
++            # Wait before next cycle
++            await asyncio.sleep(1.0)
++
++async def StateMachineLogic(self):
++    """Override this in subclasses"""
++    pass
+\ No newline at end of file
+diff --git a/agents/sarah.py b/agents/sarah.py
+new file mode 100644
+index 0000000..aea4100
+--- /dev/null
++++ b/agents/sarah.py
+@@ -0,0 +1,25 @@
++# ===============================
++# S.A.R.A.H SPECIFIC AGENT
++# ===============================
++
++from baseAgent import BaseCharacter
++
++
++class SarahAgent(BaseCharacter):
++    def __init__(self):
++        super().__init__("S.A.R.A.H")
++    
++    def create_state_machine(self):
++        from mainAgent import SarahStateMachine
++        return SarahStateMachine(self)
++        
++    def SetupPersonality(self):
++        # S.A.R.A.H specific personality - more analytical but social
++        self.personalityModule.energy = 70      # Somewhat extraverted
++        self.personalityModule.mind = 90        # Highly intuitive 
++        self.personalityModule.nature = 60      # Balanced thinking/feeling
++        self.personalityModule.tactics = 30     # More judging/planning
++        self.personalityModule.identity = 80    # Assertive
++
++        self.personalityModule.DeterminePersonalityType()
++        self.personalityModule.CalculateDecisionWeights()
+diff --git a/gitignore b/gitignore
+index 0dbf2f2..4c3e916 100644
+--- a/gitignore
++++ b/gitignore
+@@ -1,170 +1,170 @@
+-# ---> Python
+-# Byte-compiled / optimized / DLL files
+-__pycache__/
+-*.py[cod]
+-*$py.class
+-
+-# C extensions
+-*.so
+-
+-# Distribution / packaging
+-.Python
+-build/
+-develop-eggs/
+-dist/
+-downloads/
+-eggs/
+-.eggs/
+-lib/
+-lib64/
+-parts/
+-sdist/
+-var/
+-wheels/
+-share/python-wheels/
+-*.egg-info/
+-.installed.cfg
+-*.egg
+-MANIFEST
+-
+-# PyInstaller
+-#  Usually these files are written by a python script from a template
+-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+-*.manifest
+-*.spec
+-
+-# Installer logs
+-pip-log.txt
+-pip-delete-this-directory.txt
+-
+-# Unit test / coverage reports
+-htmlcov/
+-.tox/
+-.nox/
+-.coverage
+-.coverage.*
+-.cache
+-nosetests.xml
+-coverage.xml
+-*.cover
+-*.py,cover
+-.hypothesis/
+-.pytest_cache/
+-cover/
+-
+-# Translations
+-*.mo
+-*.pot
+-
+-# Django stuff:
+-*.log
+-local_settings.py
+-db.sqlite3
+-db.sqlite3-journal
+-
+-# Flask stuff:
+-instance/
+-.webassets-cache
+-
+-# Scrapy stuff:
+-.scrapy
+-
+-# Sphinx documentation
+-docs/_build/
+-
+-# PyBuilder
+-.pybuilder/
+-target/
+-
+-# Jupyter Notebook
+-.ipynb_checkpoints
+-
+-# IPython
+-profile_default/
+-ipython_config.py
+-
+-# pyenv
+-#   For a library or package, you might want to ignore these files since the code is
+-#   intended to run in multiple environments; otherwise, check them in:
+-# .python-version
+-
+-# pipenv
+-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+-#   install all needed dependencies.
+-#Pipfile.lock
+-
+-# UV
+-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+-#   This is especially recommended for binary packages to ensure reproducibility, and is more
+-#   commonly ignored for libraries.
+-#uv.lock
+-
+-# poetry
+-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+-#   This is especially recommended for binary packages to ensure reproducibility, and is more
+-#   commonly ignored for libraries.
+-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+-#poetry.lock
+-
+-# pdm
+-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+-#pdm.lock
+-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+-#   in version control.
+-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
+-.pdm.toml
+-.pdm-python
+-.pdm-build/
+-
+-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+-__pypackages__/
+-
+-# Celery stuff
+-celerybeat-schedule
+-celerybeat.pid
+-
+-# SageMath parsed files
+-*.sage.py
+-
+-# Environments
+-.env
+-.venv
+-env/
+-venv/
+-ENV/
+-env.bak/
+-venv.bak/
+-
+-# Spyder project settings
+-.spyderproject
+-.spyproject
+-
+-# Rope project settings
+-.ropeproject
+-
+-# mkdocs documentation
+-/site
+-
+-# mypy
+-.mypy_cache/
+-.dmypy.json
+-dmypy.json
+-
+-# Pyre type checker
+-.pyre/
+-
+-# pytype static type analyzer
+-.pytype/
+-
+-# Cython debug symbols
+-cython_debug/
+-
+-# PyCharm
+-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+-#.idea/
+-
++# ---> Python
++# Byte-compiled / optimized / DLL files
++__pycache__/
++*.py[cod]
++*$py.class
++
++# C extensions
++*.so
++
++# Distribution / packaging
++.Python
++build/
++develop-eggs/
++dist/
++downloads/
++eggs/
++.eggs/
++lib/
++lib64/
++parts/
++sdist/
++var/
++wheels/
++share/python-wheels/
++*.egg-info/
++.installed.cfg
++*.egg
++MANIFEST
++
++# PyInstaller
++#  Usually these files are written by a python script from a template
++#  before PyInstaller builds the exe, so as to inject date/other infos into it.
++*.manifest
++*.spec
++
++# Installer logs
++pip-log.txt
++pip-delete-this-directory.txt
++
++# Unit test / coverage reports
++htmlcov/
++.tox/
++.nox/
++.coverage
++.coverage.*
++.cache
++nosetests.xml
++coverage.xml
++*.cover
++*.py,cover
++.hypothesis/
++.pytest_cache/
++cover/
++
++# Translations
++*.mo
++*.pot
++
++# Django stuff:
++*.log
++local_settings.py
++db.sqlite3
++db.sqlite3-journal
++
++# Flask stuff:
++instance/
++.webassets-cache
++
++# Scrapy stuff:
++.scrapy
++
++# Sphinx documentation
++docs/_build/
++
++# PyBuilder
++.pybuilder/
++target/
++
++# Jupyter Notebook
++.ipynb_checkpoints
++
++# IPython
++profile_default/
++ipython_config.py
++
++# pyenv
++#   For a library or package, you might want to ignore these files since the code is
++#   intended to run in multiple environments; otherwise, check them in:
++# .python-version
++
++# pipenv
++#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
++#   However, in case of collaboration, if having platform-specific dependencies or dependencies
++#   having no cross-platform support, pipenv may install dependencies that don't work, or not
++#   install all needed dependencies.
++#Pipfile.lock
++
++# UV
++#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
++#   This is especially recommended for binary packages to ensure reproducibility, and is more
++#   commonly ignored for libraries.
++#uv.lock
++
++# poetry
++#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
++#   This is especially recommended for binary packages to ensure reproducibility, and is more
++#   commonly ignored for libraries.
++#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
++#poetry.lock
++
++# pdm
++#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
++#pdm.lock
++#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
++#   in version control.
++#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
++.pdm.toml
++.pdm-python
++.pdm-build/
++
++# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
++__pypackages__/
++
++# Celery stuff
++celerybeat-schedule
++celerybeat.pid
++
++# SageMath parsed files
++*.sage.py
++
++# Environments
++.env
++.venv
++env/
++venv/
++ENV/
++env.bak/
++venv.bak/
++
++# Spyder project settings
++.spyderproject
++.spyproject
++
++# Rope project settings
++.ropeproject
++
++# mkdocs documentation
++/site
++
++# mypy
++.mypy_cache/
++.dmypy.json
++dmypy.json
++
++# Pyre type checker
++.pyre/
++
++# pytype static type analyzer
++.pytype/
++
++# Cython debug symbols
++cython_debug/
++
++# PyCharm
++#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
++#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
++#  and can be added to the global gitignore or merged into this file.  For a more nuclear
++#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
++#.idea/
++
+diff --git a/main.py b/main.py
+index e69de29..7ad951d 100644
+--- a/main.py
++++ b/main.py
+@@ -0,0 +1,26 @@
++# ===============================
++# DEMO USAGE
++# ===============================
++
++import asyncio
++from agents.sarah import SarahAgent
++
++
++async def main():
++    # Create S.A.R.A.H agent
++    sarah = SarahAgent()
++    
++    print("=== S.A.R.A.H Agent System Demo ===")
++    print(f"Personality: {sarah.personalityModule.personalityType}")
++    print(f"Role: {sarah.personalityModule.role}")
++    print(f"Strategy: {sarah.personalityModule.strategy}")
++    print("=" * 40)
++    
++    # Run the agent (in real system, this would be the main loop)
++    try:
++        await sarah.Run()
++    except KeyboardInterrupt:
++        print(f"\n{sarah.characterName} shutting down...")
++
++if __name__ == "__main__":
++    asyncio.run(main())
+\ No newline at end of file
+diff --git a/mainAgent.py b/mainAgent.py
+new file mode 100644
+index 0000000..8dda421
+--- /dev/null
++++ b/mainAgent.py
+@@ -0,0 +1,65 @@
++# ===============================
++# MAIN AGENT STATE MACHINE (Direct Port)
++# ===============================
++
++import random
++from stateMachine import ExploreState, IdleState, StateMachine, WorkState
++
++
++class SarahStateMachine(StateMachine):
++    def __init__(self, agent=None):
++        super().__init__(agent)
++        self.idleState = IdleState(agent)
++        self.workState = WorkState(agent)
++        self.exploreState = ExploreState(agent)
++
++    async def StateMachineLogic(self):
++        if self.agent.isProcessingState:
++            return
++
++        # Get personality-influenced probabilities (direct port from your code)
++        baseIdleChance = 10
++        baseWorkChance = 40  # renamed from wander to work
++        baseExploreChance = 50
++
++        # Only get the personality modifiers we actually use
++        riskModifier = self.agent.personalityModule.GetPersonalityModifier("risk_taking")
++        planningModifier = self.agent.personalityModule.GetPersonalityModifier("planning")
++        
++        # Adjust probabilities based on personality
++        # High energy (extraverted) characters explore more, idle less
++        energyInfluence = (self.agent.personalityModule.energy - 50) * 0.2  # -10 to +10
++        baseExploreChance += energyInfluence
++        baseIdleChance -= energyInfluence
++        
++        # High risk tolerance increases exploration, reduces idle time
++        riskInfluence = (riskModifier - 0.5) * 20  # -10 to +10
++        baseExploreChance += riskInfluence
++        baseIdleChance -= riskInfluence * 0.5
++        
++        # High planning tendency increases structured activities (work/explore)
++        planningInfluence = (planningModifier - 0.5) * 15  # -7.5 to +7.5
++        baseWorkChance += planningInfluence
++        baseIdleChance -= planningInfluence
++
++        # Ensure probabilities stay within reasonable bounds
++        baseIdleChance = max(10, min(baseIdleChance, 60))
++        baseWorkChance = max(15, min(baseWorkChance, 50))
++        baseExploreChance = max(20, min(baseExploreChance, 70))
++        
++        # Normalize to 100%
++        total = baseIdleChance + baseWorkChance + baseExploreChance
++        idleThreshold = (baseIdleChance / total) * 100
++        workThreshold = idleThreshold + (baseWorkChance / total) * 100
++        
++        local_rand = random.randint(1, 100)
++        
++        if local_rand <= idleThreshold:
++            self.SetTask("Idle")
++            await self.idleState.HandleState()
++        elif local_rand <= workThreshold:
++            self.SetTask("Work") 
++            await self.workState.HandleState()
++        else:
++            self.SetTask("Explore")
++            await self.exploreState.HandleState()
+\ No newline at end of file
+diff --git a/modules/characterManager.py b/modules/characterManager.py
+new file mode 100644
+index 0000000..4614e57
+--- /dev/null
++++ b/modules/characterManager.py
+@@ -0,0 +1,48 @@
++# ===============================
++# CHARACTER MANAGER (Direct Port)
++# ===============================
++
++class CharacterManager:
++    def __init__(self, agent=None):
++        self.agent = agent
++        
++        self.charName = ""
++        self.description = ""
++        self.level = 1
++        
++        # Stats
++        self.strength = 10
++        self.dexterity = 10
++        self.intelligence = 10
++        self.wisdom = 10
++        self.constitution = 10
++        
++        # Resources
++        self.health = 100.0
++        self.stamina = 100.0
++        self.mana = 100.0
++        self.maxHealth = 100.0
++        self.maxStamina = 100.0
++        self.maxMana = 100.0
++        
++        # Regen rates
++        self.healthRegen = 1.0
++        self.staminaRegen = 2.0
++        self.manaRegen = 1.5
++
++    def Regeneration(self, delta: float):
++        if self.health < self.maxHealth:
++            self.health += self.healthRegen * delta
++            self.health = min(self.health, self.maxHealth)
++        if self.stamina < self.maxStamina:
++            self.stamina += self.staminaRegen * delta
++            self.stamina = min(self.stamina, self.maxStamina)
++        if self.mana < self.maxMana:
++            self.mana += self.manaRegen * delta
++            self.mana = min(self.mana, self.maxMana)
++
++    def UpdateStats(self):
++        # Calculate derived stats
++        self.maxHealth = (self.constitution * self.strength) * 1.0
++        self.maxStamina = (self.dexterity * self.strength) * 1.0
++        self.maxMana = (self.intelligence * self.wisdom) * 1.0
+\ No newline at end of file
+diff --git a/modules/personalityModule.py b/modules/personalityModule.py
+new file mode 100644
+index 0000000..875de99
+--- /dev/null
++++ b/modules/personalityModule.py
+@@ -0,0 +1,96 @@
++import time
++import random
++import asyncio
++from typing import Dict, List, Any, Optional
++from dataclasses import dataclass
++from abc import ABC, abstractmethod
++import logging
++
++# ===============================
++# PERSONALITY MODULE (Direct Port)
++# ===============================
++
++class PersonalityModule:
++    def __init__(self, agent=None):
++        self.agent = agent
++        
++        # Core MBTI dimensions (0-100 scale)
++        self.energy = 50        # Introversion (0) vs Extraversion (100)
++        self.mind = 50          # Sensing (0) vs Intuition (100) 
++        self.nature = 50        # Thinking (0) vs Feeling (100)
++        self.tactics = 50       # Judging (0) vs Prospecting (100)
++        self.identity = 50      # Turbulent (0) vs Assertive (100)
++        
++        # Derived personality data
++        self.personalityType = ""
++        self.role = ""
++        self.strategy = ""
++        
++        self.decisionConfidence = 1.0
++        self.riskTolerance = 0.5
++        self.socialPriority = 0.5
++        self.planningTendency = 0.5
++        
++        self.debug_reasoning = ""
++
++    def get_debug_summary(self) -> str:
++        return f"{self.personalityType} | Risk:{self.riskTolerance:.1f} Social:{self.socialPriority:.1f} Planning:{self.planningTendency:.1f}"
++
++    def DeterminePersonalityType(self):
++        typeCode = ""
++        typeCode += "I" if self.energy < 50 else "E"
++        typeCode += "S" if self.mind < 50 else "N"
++        typeCode += "T" if self.nature < 50 else "F"
++        typeCode += "J" if self.tactics < 50 else "P"
++        typeCode += "-T" if self.identity < 50 else "-A"
++
++        self.personalityType = typeCode
++        self.role = self.DetermineRole()
++        self.strategy = self.DetermineStrategy()
++        
++        if self.agent:
++            print(f"{self.agent.characterName} personality: {self.personalityType} ({self.role}, {self.strategy})")
++
++    def DetermineRole(self) -> str:
++        if self.mind >= 50:  # Intuitive
++            if self.nature < 50:  # Thinking
++                return "Analyst"
++            else:  # Feeling
++                return "Diplomat"
++        else:  # Sensing
++            if self.nature < 50:  # Thinking
++                return "Sentinel" 
++            else:  # Feeling
++                return "Explorer"
++
++    def DetermineStrategy(self) -> str:
++        if self.energy >= 50 and self.identity >= 50:
++            return "People Mastery"
++        elif self.energy >= 50 and self.identity < 50:
++            return "Social Engagement"
++        elif self.energy < 50 and self.identity >= 50:
++            return "Confident Individualism"
++        else:
++            return "Constant Improvement"
++
++    def CalculateDecisionWeights(self):
++        # Decision confidence based on identity (assertive vs turbulent)
++        self.decisionConfidence = self.identity / 100.0
++        
++        # Risk tolerance based on tactics and identity
++        self.riskTolerance = ((self.tactics + self.identity) / 2.0) / 100.0
++        
++        # Social priority based on energy and nature
++        self.socialPriority = ((self.energy + self.nature) / 2.0) / 100.0
++        
++        # Planning tendency based on tactics (judging vs prospecting)
++        self.planningTendency = (100 - self.tactics) / 100.0
++
++    def GetPersonalityModifier(self, decision_type: str) -> float:
++        modifiers = {
++            "risk_taking": self.riskTolerance,
++            "social_interaction": self.socialPriority,
++            "planning": self.planningTendency,
++            "confidence": self.decisionConfidence,
++        }
++        return modifiers.get(decision_type, 0.5)  # neutral modifier
+diff --git a/stateMachine.py b/stateMachine.py
+new file mode 100644
+index 0000000..a2c35a7
+--- /dev/null
++++ b/stateMachine.py
+@@ -0,0 +1,88 @@
++# ===============================
++# STATE MACHINE (Direct Port)
++# ===============================
++
++import asyncio
++import random
++
++
++class StateMachine:
++    def __init__(self, agent=None):
++        self.agent = agent
++        self.currentState = None
++        self.isProcessingState = False
++
++    async def HandleState(self):
++        pass
++
++    def SetTask(self, taskName: str):
++        if hasattr(self.agent, 'currentTask') and taskName == self.agent.currentTask:
++            return
++        if self.agent:
++            self.agent.currentTask = taskName
++
++
++class IdleState(StateMachine):
++    def __init__(self, agent=None):
++        super().__init__(agent)
++
++    async def HandleState(self):
++        self.agent.isProcessingState = True
++        randomTime = random.uniform(1, 3)
++        print(f"{self.agent.characterName} is idling for {randomTime:.1f} seconds")
++        await asyncio.sleep(randomTime)
++        self.agent.isProcessingState = False
++
++class WorkState(StateMachine):
++    def __init__(self, agent=None):
++        super().__init__(agent)
++
++    async def HandleState(self):
++        self.agent.isProcessingState = True
++        
++        # Personality-influenced work patterns
++        baseWorkTime = 30  # base 30 minutes
++        
++        # Get personality modifiers
++        planningModifier = self.agent.personalityModule.GetPersonalityModifier("planning")
++        riskModifier = self.agent.personalityModule.GetPersonalityModifier("risk_taking")
++        
++        # High planning = longer focused work sessions
++        planningInfluence = planningModifier * 20  # 0 to 20 minutes
++        
++        # High risk tolerance = shorter bursts, more experimental
++        riskInfluence = (1.0 - riskModifier) * 15  # 0 to 15 minutes (inverted)
++        
++        workTime = baseWorkTime + planningInfluence + riskInfluence
++        workTime = max(5, min(workTime, 120))  # clamp between 5 min and 2 hours
++        
++        print(f"{self.agent.characterName} working for {workTime:.1f} minutes")
++        print(f"  Reasoning: planning={planningModifier:.2f}, risk={riskModifier:.2f}")
++        
++        # Simulate work (in real implementation, this would do actual tasks)
++        await asyncio.sleep(workTime * 0.1)  # scaled down for demo
++        
++        self.agent.isProcessingState = False
++
++class ExploreState(StateMachine):
++    def __init__(self, agent=None):
++        super().__init__(agent)
++
++    async def HandleState(self):
++        self.agent.isProcessingState = True
++        
++        # Personality-driven exploration
++        baseExploreTime = 10
++        
++        riskTolerance = self.agent.personalityModule.GetPersonalityModifier("risk_taking")
++        confidence = self.agent.personalityModule.GetPersonalityModifier("confidence")
++        
++        # High risk + high confidence = longer exploration
++        exploreTime = baseExploreTime + (riskTolerance * confidence * 20)
++        
++        print(f"{self.agent.characterName} exploring for {exploreTime:.1f} minutes")
++        print(f"  Risk tolerance: {riskTolerance:.2f}, Confidence: {confidence:.2f}")
++        
++        await asyncio.sleep(exploreTime * 0.1)  # scaled down for demo
++        
++        self.agent.isProcessingState = False
+\ No newline at end of file
