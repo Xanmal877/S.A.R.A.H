@@ -4,7 +4,7 @@
 # so it can be reliably started/stopped/checked instead of relying on the
 # caller to manage the process by hand.
 
-PROJECT_ROOT="/home/xanmal/Documents/Projects/repositories/Python/S.A.R.A.H"
+PROJECT_ROOT="/home/xanmal/Documents/Projects/repositories/S.A.R.A.H"
 export PYTHONPATH="$PROJECT_ROOT"
 
 SARAH_HOME="$HOME/.sarah"
