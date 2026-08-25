@@ -5,6 +5,11 @@ from modules.system.services import service_status, start_service, stop_service,
 from modules.system.shell import shell
 from modules.memory.memory_tools import store_memory, retrieve_memory, record_change, get_recent_changes
 from modules.system.remote_shell import run_remote_command
+from modules.system.clipboard import get_clipboard, set_clipboard
+from modules.system.notifications import send_notification
+from modules.system.media import media_play_pause, media_next, media_previous, media_status
+from modules.system.journal import get_recent_logs
+from modules.system.windows import list_windows
 from modules.audio.tts import tts
 from modules.browser import browser
 import json
@@ -44,6 +49,17 @@ def register_all_tools():
     registry.register("browser_type", browser.type_text, "Types text into the focused element, or into a CSS selector if given. Args: text (str), selector (str, optional).")
     registry.register("browser_read_page", browser.read_page, "Returns the visible text content of the current page.")
     registry.register("browser_screenshot", browser.screenshot, "Takes a screenshot of the current page. Args: path (str, optional).")
+
+    # Desktop integration tools
+    registry.register("get_clipboard", get_clipboard, "Reads the current text contents of the system clipboard.")
+    registry.register("set_clipboard", set_clipboard, "Sets the system clipboard to the given text. Args: text (str).")
+    registry.register("send_notification", send_notification, "Sends a desktop notification. Args: title (str), message (str, optional), urgency (str: low/normal/critical, optional).")
+    registry.register("media_play_pause", media_play_pause, "Toggles play/pause on the active MPRIS media player.")
+    registry.register("media_next", media_next, "Skips to the next track on the active MPRIS media player.")
+    registry.register("media_previous", media_previous, "Goes to the previous track on the active MPRIS media player.")
+    registry.register("media_status", media_status, "Reports what's currently playing on the active MPRIS media player.")
+    registry.register("get_recent_logs", get_recent_logs, "Reads recent systemd journal entries. Args: lines (int), unit (str, optional), priority (str, optional).")
+    registry.register("list_windows", list_windows, "Lists currently open windows (id, desktop, PID, host, title).")
 
 # Execute registration immediately on import
 register_all_tools()
