@@ -132,11 +132,9 @@ class RPGView(OwnerOnlyView):
         await interaction.response.edit_message(content="📊 Stats", embed=embed, view=self)
 
 
-class BattleView(discord.ui.View):
+class BattleView(OwnerOnlyView):
     def __init__(self, cog, user_id):
-        super().__init__(timeout=30)
-        self.cog = cog
-        self.user_id = user_id
+        super().__init__(cog, user_id, timeout=30)
         self.embed = None
 
     async def create_embed(self):
