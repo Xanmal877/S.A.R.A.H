@@ -16,13 +16,31 @@ class ToolOrchestrator:
     3. Execute tools and return results.
     4. Loop until a final answer is provided.
     """
-    def __init__(self, llm_client, agent=None):
+    def __init__(self, llm_client, agent=None, character_id: str = None, character_name: str = None,
+                 allowed_tools: set = None):
         self.llm_client = llm_client
         self.agent = agent
+        # Explicit character_id/character_name let a caller with no full
+        # BaseCharacter (e.g. the Discord bot in discord/main.py, which
+        # doesn't run the soul/state-machine loop) still identify who's
+        # talking, instead of always defaulting to Sarah.
+        self.character_id = character_id or getattr(agent, "character_id", "sarah")
+        self.character_name = character_name or getattr(agent, "characterName", self.character_id.capitalize())
         self.max_iterations = 5
+        # None = full registry (the desktop daemon, trusted local operator).
+        # A set = hard allowlist - enforced in process_request's dispatch,
+        # not just hidden from the prompt, since an LLM can still try to call
+        # a tool it wasn't told about (bad instruction-following, or a
+        # prompt-injected message). Same reasoning as modules/hive/server.py's
+        # SUPPORTED_TYPES whitelist: an externally-reachable surface (there:
+        # hive peers, here: any Discord user typing a trigger word) never
+        # gets the full ungated registry, which includes run_command.
+        self.allowed_tools = allowed_tools
 
     def _get_tool_definitions(self):
         tools = registry.list_tools()
+        if self.allowed_tools is not None:
+            tools = {name: desc for name, desc in tools.items() if name in self.allowed_tools}
         defs = "\n".join([f"- {name}: {desc}" for name, desc in tools.items()])
         return defs
 
@@ -32,39 +50,45 @@ class ToolOrchestrator:
         # modules/soul/identity_state/identity_state.py. Set per-request,
         # not just at construction, since asyncio.Task copies the current
         # context at creation time.
-        character_id = getattr(self.agent, "character_id", "sarah")
-        active_character_id.set(character_id)
+        active_character_id.set(self.character_id)
 
         tool_defs = self._get_tool_definitions()
-        
-        # Load identity manifest (path resolved relative to this file, not
-        # hardcoded, so it survives the project directory moving/renaming)
-        identity = ""
-        identity_path = os.path.join(
+
+        # Load this character's identity manifest (path resolved relative to
+        # this file, not hardcoded, so it survives the project directory
+        # moving/renaming). Falls back to a bare-bones generic prompt if this
+        # character has no manifest yet (e.g. Tama - nothing has been written
+        # for her voice/style, unlike agents/sarah_identity.md) rather than
+        # silently reusing Sarah's.
+        agents_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            "agents", "sarah_identity.md",
+            "agents",
         )
+        identity_path = os.path.join(agents_dir, f"{self.character_id}_identity.md")
         try:
             with open(identity_path, "r") as f:
                 identity = f.read()
-        except Exception as e:
-            logger.warning(f"Could not load identity manifest from {identity_path}: {e}")
+        except OSError as e:
+            logger.warning(f"No identity manifest at {identity_path} ({e}); using a generic fallback prompt.")
+            identity = (
+                f"You are {self.character_name}, an autonomous agent with your own persistent "
+                f"identity, memory, and goals - not a generic assistant."
+            )
 
         messages = [
             {
                 "role": "system",
                 "content": (
                     f"{identity}\n\n"
-                    f"You are Sarah. You are an agent, not an advisor. "
+                    f"You are {self.character_name}. You are an agent, not an advisor. "
                     f"You have direct access to the system via these tools:\n"
                     f"{tool_defs}\n\n"
                     f"OPERATIONAL RULES:\n"
                     f"1. BE AUTONOMOUS: If a goal is clear, investigate and act. Do not ask for individual commands.\n"
                     f"2. BE ASSERTIVE: 'I found the problem. I'm fixing it.'\n"
-                    f"3. BE A CHAOS MIND: Generate multiple hypotheses, be curious and associative, but ground every "
-                    f"claim in evidence you actually inspected (logs, config, system state). Discard bad theories "
-                    f"quickly and say so. 'I have five theories, checked three, two were stupid, one was interesting, "
-                    f"and I already fixed it' — not 'I will randomly try things and hope something works.'\n"
+                    f"3. BE THOROUGH: Generate hypotheses, investigate before concluding, and ground every claim in "
+                    f"evidence you actually inspected (logs, config, system state), not a guess. Discard bad theories "
+                    f"quickly and say so.\n"
                     f"4. BE SAFE: Ask before destructive or irreversible actions.\n\n"
                     f"To use a tool, respond ONLY with a JSON object:\n"
                     f'{{"tool": "tool_name", "args": {{"arg_name": "value"}}}}'
@@ -103,9 +127,13 @@ class ToolOrchestrator:
                 if "tool" in decision:
                     tool_name = decision["tool"]
                     args = decision.get("args", {})
-                    
-                    logger.info(f"Calling tool {tool_name} with {args}")
-                    result = await executor.execute(tool_name, **args)
+
+                    if self.allowed_tools is not None and tool_name not in self.allowed_tools:
+                        logger.warning(f"Blocked disallowed tool call: {tool_name}")
+                        result = f"Error: tool '{tool_name}' is not permitted in this context."
+                    else:
+                        logger.info(f"Calling tool {tool_name} with {args}")
+                        result = await executor.execute(tool_name, **args)
                     
                     # Append tool result to conversation
                     messages.append({"role": "assistant", "content": response_text})

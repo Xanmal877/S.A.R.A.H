@@ -48,17 +48,19 @@ def register_all_tools():
     registry.register("record_change", record_change, "Records a system change in the history log. Args: request (str), action (str), result (str).")
     registry.register("get_recent_changes", get_recent_changes, "Retrieves the last few changes made to the system.")
 
-    # Identity tools - Sarah's own persistent opinions/interests/relationship/goals
-    # (modules/soul/identity_state/), independent of whichever LLM is reasoning.
-    # Also included automatically every cycle as [SARAH] in the world state.
-    registry.register("form_opinion", form_opinion, "Records Sarah's own opinion on a topic, persisted independent of the LLM. Args: topic (str), opinion (str), reasoning (str, optional).")
-    registry.register("get_opinion", get_opinion, "Retrieves Sarah's previously formed opinion on a topic, if any. Args: topic (str).")
-    registry.register("add_interest", add_interest, "Adds something to Sarah's persistent interests. Args: interest (str).")
-    registry.register("add_dislike", add_dislike, "Adds something to Sarah's persistent dislikes. Args: dislike (str).")
+    # Identity tools - the calling character's own persistent opinions/
+    # interests/relationship/goals (modules/soul/identity_state/), resolved
+    # per-character via active_character_id, independent of whichever LLM
+    # is reasoning. Also included automatically every cycle as [SARAH] in
+    # Sarah's own world state specifically (see modules/observationModule.py).
+    registry.register("form_opinion", form_opinion, "Records the character's own opinion on a topic, persisted independent of the LLM. Args: topic (str), opinion (str), reasoning (str, optional).")
+    registry.register("get_opinion", get_opinion, "Retrieves the character's previously formed opinion on a topic, if any. Args: topic (str).")
+    registry.register("add_interest", add_interest, "Adds something to the character's persistent interests. Args: interest (str).")
+    registry.register("add_dislike", add_dislike, "Adds something to the character's persistent dislikes. Args: dislike (str).")
     registry.register("add_relationship_note", add_relationship_note, "Records a note about the relationship with the operator (inside joke, preference, ongoing thread). Args: note (str).")
-    registry.register("add_goal", add_goal, "Adds a persistent goal Sarah is working toward. Args: goal (str).")
+    registry.register("add_goal", add_goal, "Adds a persistent goal the character is working toward. Args: goal (str).")
     registry.register("complete_goal", complete_goal, "Marks an active goal as done. Args: goal (str).")
-    registry.register("get_identity_summary", get_identity_summary, "Returns Sarah's current interests/dislikes/opinions/goals/relationship notes.")
+    registry.register("get_identity_summary", get_identity_summary, "Returns the character's current interests/dislikes/opinions/goals/relationship notes.")
 
     # Browser tools (Playwright/Firefox, dedicated profile - see modules/browser/)
     registry.register("browser_navigate", browser.navigate, "Navigates Sarah's own browser to a URL. Args: url (str).")

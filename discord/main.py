@@ -90,6 +90,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# S.A.R.A.H's Python package root (this file lives at <repo>/discord/main.py) -
+# added so this bot can import the same soul/tool-orchestrator machinery
+# Sarah's own daemon uses, rather than talking to Ollama directly with no
+# identity/tools at all.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from modules.llmClient import LLMClient  # noqa: E402
+from modules.tools.tool_orchestrator import ToolOrchestrator  # noqa: E402
+from modules.tools import init_tools  # noqa: E402,F401 - populates the tool registry on import
+
+# Explicit allowlist for Discord - this bot is reachable by anyone in the
+# server, not just a trusted local operator, so it gets the same treatment
+# as modules/hive/server.py's SUPPORTED_TYPES: a small, deliberate subset of
+# the tool registry, never run_command/install_package/browser/containers/etc.
+# Enforced in ToolOrchestrator itself (allowed_tools=...), not just by what's
+# imported here.
+DISCORD_ALLOWED_TOOLS = {
+    "form_opinion", "get_opinion", "add_interest", "add_dislike",
+    "add_relationship_note", "add_goal", "complete_goal", "get_identity_summary",
+    "avatar_move_to", "avatar_say", "avatar_play",
+    "store_memory", "retrieve_memory",
+}
+
 
 # ── External dependency health checks ─────────────────────────────────
 def _check_ollama():
@@ -178,15 +200,25 @@ PERSONALITIES = {
 }
 
 
-# ── Utility: Generate AI response via Ollama ──────────────────────────
-def GenerateResponse(message, modelName):
+# ── Utility: Generate AI response via the real S.A.R.A.H brain ────────
+async def GenerateResponse(message, personality_id: str, model_name: str):
+    """
+    Routes the message through this character's actual identity/tools
+    (modules/soul/identity_state, the gated tool registry - see
+    DISCORD_ALLOWED_TOOLS) instead of a bare, prompt-less ollama.chat call.
+    personality_id becomes the character_id ToolOrchestrator resolves
+    identity/avatar state through, so "tama" and "saki" get their own
+    opinions/goals/avatar, not a shared/generic response.
+    """
     try:
-        response = ollama.chat(
-            model=modelName,
-            messages=[{"role": "user", "content": message.content}],
-            stream=False,
+        llm_client = LLMClient(model=model_name, api_type="ollama")
+        orchestrator = ToolOrchestrator(
+            llm_client,
+            character_id=personality_id,
+            character_name=personality_id.capitalize(),
+            allowed_tools=DISCORD_ALLOWED_TOOLS,
         )
-        return response["message"]["content"]
+        return await orchestrator.process_request(message.content)
     except Exception:
         logger.exception("Error in GenerateResponse")
         return None
@@ -313,21 +345,21 @@ class EchoBot:
 
         # 1. Dedicated chat channel — always respond
         if channel_name == self.chatChannel:
-            response = GenerateResponse(message, model_name)
+            response = await GenerateResponse(message, personality_id, model_name)
             if response:
                 await message.channel.send(response)
             return
 
         # 2. Mentioned by personality name in other channels
         if personality_id != self.current_personality:
-            response = GenerateResponse(message, model_name)
+            response = await GenerateResponse(message, personality_id, model_name)
             if response:
                 await message.channel.send(response)
             return
 
         # 3. Random 1-in-6 chance in other channels
         if channel_name != self.chatChannel and random.randrange(0, 6) == 0:
-            response = GenerateResponse(message, model_name)
+            response = await GenerateResponse(message, personality_id, model_name)
             if response:
                 await message.channel.send(response)
 
