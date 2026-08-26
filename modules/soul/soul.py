@@ -170,7 +170,8 @@ class SoulData:
         self.soulDataDict[SoulEnum.PRIMARY_ELEMENT] = value
 
 class Soul:
-    def __init__(self):
+    def __init__(self, character_id: str = "sarah"):
+        self.character_id = character_id
         self.soul_data = SoulData()
         # Modules (Equivalent to the GD setup)
         from .mental_state.mental_state import MentalState
@@ -179,7 +180,7 @@ class Soul:
         from .exploration_module import ExplorationModule
         from .party_module import PartyModule
         from .detection_module import DetectionModule
-        from .identity_state import identity_state
+        from .identity_state.identity_state import get_identity_state
 
         self.mental_state = MentalState()
         self.social_state = SocialState()
@@ -189,11 +190,12 @@ class Soul:
         self.detection = DetectionModule()
 
         # Opinions/interests/dislikes/relationship notes/goals - the facts
-        # that make Sarah Sarah, independent of which LLM is reasoning about
-        # them. Shared singleton (see identity_state.py) so tool calls (which
-        # don't get a handle to this Soul instance - see
-        # modules/tools/executor.py) write into the same object this reads.
-        self.identity = identity_state
+        # that make this character who they are, independent of which LLM is
+        # reasoning about them. Pulled from the same per-character registry
+        # identity_tools.py resolves via active_character_id (see
+        # identity_state.py), so a tool call and this Soul's world-state
+        # summary always agree on whose identity they're reading/writing.
+        self.identity = get_identity_state(character_id)
 
         # Restore mood/needs/drives from the last run instead of resetting
         # to defaults every process start (see modules/soul/persistence.py).
@@ -201,7 +203,7 @@ class Soul:
         # by SetupPersonality() in agents/*.py - that's intentional, mbti is
         # treated as static configuration, not state that drifts and persists.
         from .persistence import load_mental_state
-        self.mental_state.startup(is_generated=False, existing_save=load_mental_state())
+        self.mental_state.startup(is_generated=False, existing_save=load_mental_state(character_id))
 
     @property
     def uid(self) -> int:

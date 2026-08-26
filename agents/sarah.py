@@ -7,7 +7,7 @@ from .baseAgent import BaseCharacter
 
 class SarahAgent(BaseCharacter):
     def __init__(self):
-        super().__init__("S.A.R.A.H")
+        super().__init__("S.A.R.A.H", character_id="sarah")
     
     def create_state_machine(self):
         from mainAgent import SarahStateMachine

@@ -13,11 +13,12 @@ MENTAL_STATE_SAVE_INTERVAL_S = 30
 
 
 class BaseCharacter:
-    def __init__(self, name: str = "Agent"):
+    def __init__(self, name: str = "Agent", character_id: str = None):
         self.characterName = name
-        
+        self.character_id = character_id or name.lower()
+
         # Core Soul Data (from Autumn's Dungeoneering)
-        self.soul = Soul()
+        self.soul = Soul(character_id=self.character_id)
         self.soul.soul_name = name
         
         # Modules (direct port of your modular system)
@@ -126,13 +127,13 @@ class BaseCharacter:
                 # this is state, not a hot loop write. See modules/soul/persistence.py.
                 seconds_since_save += 1.0
                 if seconds_since_save >= MENTAL_STATE_SAVE_INTERVAL_S:
-                    save_mental_state(self.soul.mental_state)
+                    save_mental_state(self.soul.mental_state, self.character_id)
                     seconds_since_save = 0.0
 
                 # Wait before next cycle
                 await asyncio.sleep(1.0)
         finally:
-            save_mental_state(self.soul.mental_state)
+            save_mental_state(self.soul.mental_state, self.character_id)
 
 async def StateMachineLogic(self):
     """Override this in subclasses"""

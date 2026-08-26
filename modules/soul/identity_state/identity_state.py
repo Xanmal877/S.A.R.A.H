@@ -1,24 +1,27 @@
 import json
 import os
 import logging
+import contextvars
 from datetime import datetime
+from typing import Dict
 
 logger = logging.getLogger("IdentityState")
 
-STATE_PATH = os.path.expanduser("~/.sarah/state/identity_state.json")
+def _default_state_path(character_id: str) -> str:
+    return os.path.expanduser(f"~/.sarah/state/{character_id}/identity_state.json")
 
 
 class IdentityState:
     """
-    Sarah's persistent opinions, interests, dislikes, relationship notes, and
-    goals - the structured facts an LLM should read and act on each turn,
-    not improvise from scratch. Owned by Soul, independent of whichever
-    model is currently doing the reasoning, and survives process restarts
-    (~/.sarah/state/identity_state.json).
+    A character's persistent opinions, interests, dislikes, relationship
+    notes, and goals - the structured facts an LLM should read and act on
+    each turn, not improvise from scratch. Owned by Soul, independent of
+    whichever model is currently doing the reasoning, and survives process
+    restarts (~/.sarah/state/{character_id}/identity_state.json).
     """
 
-    def __init__(self, storage_path: str = STATE_PATH):
-        self.storage_path = storage_path
+    def __init__(self, storage_path: str = None, character_id: str = "sarah"):
+        self.storage_path = storage_path or _default_state_path(character_id)
         self.opinions = {}          # topic -> {opinion, reasoning, updated_at}
         self.interests = []
         self.dislikes = []
@@ -113,9 +116,26 @@ class IdentityState:
         }
 
 
-# Module-level singleton, matching modules/memory/persistent_memory.py's
-# pattern - Soul references this same instance rather than creating its
-# own, so tool calls (which don't get a handle to the live agent/Soul
-# object - see modules/tools/executor.py) and the Soul's world-state
-# summary are always reading/writing the same data.
-identity_state = IdentityState()
+# Registry of one IdentityState per character, keyed by character_id, so
+# tool calls (which don't get a handle to the live agent/Soul object - see
+# modules/tools/executor.py) can look up the *right* character's identity
+# instead of always sharing one. active_character_id is a contextvar (not a
+# plain global) so concurrent asyncio tasks - e.g. Sarah's and Tama's
+# reasoning loops running side by side - each see their own value instead of
+# racing on a shared one; ToolOrchestrator.process_request sets it from
+# self.agent.character_id before running a character's tool-call loop.
+_identity_states: Dict[str, "IdentityState"] = {}
+active_character_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "active_character_id", default="sarah"
+)
+
+
+def get_identity_state(character_id: str = "sarah") -> "IdentityState":
+    if character_id not in _identity_states:
+        _identity_states[character_id] = IdentityState(character_id=character_id)
+    return _identity_states[character_id]
+
+
+# Backward-compatible singleton - Sarah's identity, sourced from the same
+# registry so it's not a second, divergent instance.
+identity_state = get_identity_state("sarah")

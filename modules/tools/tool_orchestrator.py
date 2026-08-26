@@ -4,6 +4,7 @@ import asyncio
 import os
 from modules.tools.tool_registry import registry
 from modules.tools.executor import executor
+from modules.soul.identity_state.identity_state import active_character_id
 
 logger = logging.getLogger("ToolOrchestrator")
 
@@ -26,6 +27,14 @@ class ToolOrchestrator:
         return defs
 
     async def process_request(self, user_request, system_context=""):
+        # Tool calls (form_opinion, add_goal, ...) resolve "whose identity"
+        # via this contextvar rather than a fixed global - see
+        # modules/soul/identity_state/identity_state.py. Set per-request,
+        # not just at construction, since asyncio.Task copies the current
+        # context at creation time.
+        character_id = getattr(self.agent, "character_id", "sarah")
+        active_character_id.set(character_id)
+
         tool_defs = self._get_tool_definitions()
         
         # Load identity manifest (path resolved relative to this file, not
