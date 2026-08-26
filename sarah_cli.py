@@ -1,6 +1,5 @@
 import asyncio
 import sys
-import os
 from agents.sarah import SarahAgent
 from modules.tools.tool_orchestrator import ToolOrchestrator
 from modules.tools.init_tools import register_all_tools

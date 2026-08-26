@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Dict
 
 class SocialModule:
     def __init__(self):

@@ -1,6 +1,5 @@
 import json
 import logging
-import asyncio
 import os
 from modules.tools.tool_registry import registry
 from modules.tools.executor import executor

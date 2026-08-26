@@ -1,5 +1,5 @@
-from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Tuple
+from enum import Enum
+from typing import Dict
 
 class LifeSkill(Enum):
     # Combat (1000-1009)

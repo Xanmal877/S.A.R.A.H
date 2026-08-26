@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 
-import numpy as np
 import sounddevice as sd
 import openwakeword
 from openwakeword.model import Model

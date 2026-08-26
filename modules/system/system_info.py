@@ -1,7 +1,5 @@
 import platform
 import psutil
-import os
-from modules.system.shell import shell
 
 class SystemInfo:
     """

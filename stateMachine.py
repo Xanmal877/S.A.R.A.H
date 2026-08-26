@@ -2,7 +2,6 @@
 # STATE MACHINE (Direct Port)
 # ===============================
 
-import asyncio
 import random
 import os
 import glob
@@ -140,15 +139,14 @@ class ExploreState(StateMachine):
         super().__init__(agent)
 
     async def discover_files(self):
-        risk = self.agent.personalityModule.riskTolerance
         py_files = []
-        for root, dirs, files in os.walk("."):
+        for root, _dirs, files in os.walk("."):
             for f in files:
                 if f.endswith(".py"):
                     py_files.append(os.path.join(root, f))
-        
+
         if not py_files:
-            print(f"[Explore] discover_files: \"No python files found to explore.\"")
+            print("[Explore] discover_files: \"No python files found to explore.\"")
             return
 
         target = random.choice(py_files)

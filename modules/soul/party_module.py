@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
+from typing import Dict
 
 class PartiesEnum(Enum):
     LEADER = auto()

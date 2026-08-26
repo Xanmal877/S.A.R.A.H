@@ -1,4 +1,3 @@
-import subprocess
 import logging
 from modules.system.shell import shell
 

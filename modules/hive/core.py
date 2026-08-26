@@ -3,7 +3,7 @@ import logging
 import time
 
 from .config import load_secret
-from .protocol import encode_message, decode_message, ProtocolError
+from .protocol import encode_message, decode_message
 from .peer_registry import peer_registry
 
 logger = logging.getLogger("HiveCore")

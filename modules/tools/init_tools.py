@@ -18,7 +18,6 @@ from modules.system.remote_files import push_file_to_peer, pull_file_from_peer
 from modules.audio.tts import tts
 from modules.browser import browser
 from modules.avatar.avatar_tools import avatar_move_to, avatar_say, avatar_play
-import json
 
 async def speak(text: str):
     await tts.speak(text)

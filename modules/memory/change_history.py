@@ -1,32 +1,18 @@
-import json
 import os
-import shutil
 from datetime import datetime
+from modules.memory.json_file_store import JsonFileStore
 
-class ChangeHistory:
+class ChangeHistory(JsonFileStore):
     """
     Records every modification Sarah makes to the system.
     """
     def __init__(self, history_path="~/.sarah/history.json"):
         self.history_path = os.path.expanduser(history_path)
-        self._ensure_dir()
-        self.logs = self._load()
-
-    def _ensure_dir(self):
-        os.makedirs(os.path.dirname(self.history_path), exist_ok=True)
-
-    def _load(self):
-        if os.path.exists(self.history_path):
-            try:
-                with open(self.history_path, "r") as f:
-                    return json.load(f)
-            except Exception:
-                return []
-        return []
+        self._ensure_dir(self.history_path)
+        self.logs = self._load(self.history_path, [])
 
     def save(self):
-        with open(self.history_path, "w") as f:
-            json.dump(self.logs, f, indent=4)
+        self._save(self.history_path, self.logs)
 
     def record(self, request, action, result, files_changed=None, backup_path=None):
         entry = {

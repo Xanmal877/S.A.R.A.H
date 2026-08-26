@@ -3,7 +3,6 @@
 # ===============================
 
 import random
-import json
 from stateMachine import ExploreState, IdleState, StateMachine, WorkState
 from modules.llmClient import LLMClient
 from modules.personaMapper import PersonaMapper
@@ -113,7 +112,7 @@ class SarahStateMachine(StateMachine):
             response_text = await orchestrator.process_request(prompt, system_context=world_state)
             print(f"[S.A.R.A.H. Autonomous]: {response_text}")
 
-        except Exception as e:
+        except Exception:
             # Silently handle errors in the background loop to prevent daemon crashes
             pass
 

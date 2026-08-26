@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 class PerceptionType(Enum):
     ALLIES = auto()
