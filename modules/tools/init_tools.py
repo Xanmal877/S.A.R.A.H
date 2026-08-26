@@ -10,6 +10,10 @@ from modules.system.notifications import send_notification
 from modules.system.media import media_play_pause, media_next, media_previous, media_status, list_media_players
 from modules.system.journal import get_recent_logs
 from modules.system.windows import list_windows
+from modules.system.file_watcher import diff_directory, check_new_downloads
+from modules.system.git_tools import git_status, git_log, git_diff, git_pull, git_commit
+from modules.system.containers import list_containers, list_images, container_logs, start_container, stop_container, restart_container
+from modules.system.remote_files import push_file_to_peer, pull_file_from_peer
 from modules.audio.tts import tts
 from modules.browser import browser
 import json
@@ -61,6 +65,29 @@ def register_all_tools():
     registry.register("media_status", media_status, "Reports what's currently playing. Args: player (str, optional).")
     registry.register("get_recent_logs", get_recent_logs, "Reads recent systemd journal entries. Args: lines (int), unit (str, optional), priority (str, optional).")
     registry.register("list_windows", list_windows, "Lists currently open windows (id, desktop, PID, host, title).")
+
+    # File watching
+    registry.register("diff_directory", diff_directory, "Compares a directory against its last recorded snapshot and reports new/removed/changed files, then updates the snapshot. Args: path (str, optional, defaults to ~/Downloads).")
+    registry.register("check_new_downloads", check_new_downloads, "Checks ~/Downloads specifically for changes since the last check.")
+
+    # Git tooling
+    registry.register("git_status", git_status, "Gets short status + branch info for a git repo. Args: repo_path (str).")
+    registry.register("git_log", git_log, "Gets recent commit log for a git repo. Args: repo_path (str), count (int, optional).")
+    registry.register("git_diff", git_diff, "Gets a diffstat for a git repo. Args: repo_path (str), staged (bool, optional).")
+    registry.register("git_pull", git_pull, "Pulls the current branch of a git repo. Args: repo_path (str).")
+    registry.register("git_commit", git_commit, "Commits staged (or all, if add_all) changes locally - never pushes. Args: repo_path (str), message (str), add_all (bool, optional).")
+
+    # Container controls (docker or podman, whichever is installed)
+    registry.register("list_containers", list_containers, "Lists containers. Args: all (bool, optional, default True to include stopped).")
+    registry.register("list_images", list_images, "Lists container images.")
+    registry.register("container_logs", container_logs, "Gets recent logs for a container. Args: name (str), lines (int, optional).")
+    registry.register("start_container", start_container, "Starts a stopped container. Args: name (str).")
+    registry.register("stop_container", stop_container, "Stops a running container. Args: name (str).")
+    registry.register("restart_container", restart_container, "Restarts a container. Args: name (str).")
+
+    # Remote file transfer (rsync+SSH, hive-peer restricted - same trust boundary as run_remote_command)
+    registry.register("push_file_to_peer", push_file_to_peer, "Copies a local file/directory to a hive peer over rsync+SSH. Args: host (str), local_path (str), remote_path (str).")
+    registry.register("pull_file_from_peer", pull_file_from_peer, "Copies a file/directory from a hive peer to this machine over rsync+SSH. Args: host (str), remote_path (str), local_path (str).")
 
 # Execute registration immediately on import
 register_all_tools()
