@@ -35,17 +35,27 @@ DEFAULT_USER = {
 }
 
 
-class RPGView(discord.ui.View):
-    def __init__(self, cog, user_id):
-        super().__init__(timeout=180)
+class OwnerOnlyView(discord.ui.View):
+    """Base for the RPG menu views: only the user who opened the menu may
+    click its buttons."""
+
+    denial_message = "❌ This menu is not for you!"
+
+    def __init__(self, cog, user_id, timeout=180):
+        super().__init__(timeout=timeout)
         self.cog = cog
         self.user_id = user_id
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("❌ This menu is not for you!", ephemeral=True)
+            await interaction.response.send_message(self.denial_message, ephemeral=True)
             return False
         return True
+
+
+class RPGView(OwnerOnlyView):
+    def __init__(self, cog, user_id):
+        super().__init__(cog, user_id, timeout=180)
 
     @discord.ui.button(label="Explore", style=discord.ButtonStyle.primary)
     async def explore_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -194,11 +204,9 @@ class BattleView(discord.ui.View):
                 await interaction.response.edit_message(content=response, embed=self.embed, view=self)
 
 
-class SkillMenuView(discord.ui.View):
+class SkillMenuView(OwnerOnlyView):
     def __init__(self, cog, user_id, skills, learn_only=False):
-        super().__init__(timeout=30)
-        self.cog = cog
-        self.user_id = user_id
+        super().__init__(cog, user_id, timeout=30)
         self.learn_only = learn_only
 
         for skill_name in skills:
@@ -222,12 +230,6 @@ class SkillMenuView(discord.ui.View):
         back_button = Button(label="Back", style=discord.ButtonStyle.secondary, row=1)
         back_button.callback = self._back_callback
         self.add_item(back_button)
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("❌ This menu is not for you!", ephemeral=True)
-            return False
-        return True
 
     def _make_skill_callback(self, skill_name):
         async def _callback(interaction: discord.Interaction):
@@ -272,11 +274,11 @@ class SkillMenuView(discord.ui.View):
             )
 
 
-class ShopView(discord.ui.View):
+class ShopView(OwnerOnlyView):
+    denial_message = "❌ This shop isn't for you!"
+
     def __init__(self, cog, user_id):
-        super().__init__(timeout=30)
-        self.cog = cog
-        self.user_id = user_id
+        super().__init__(cog, user_id, timeout=30)
         self.embed = None
         self._populate_buttons()
 
@@ -318,12 +320,6 @@ class ShopView(discord.ui.View):
                 value=f"Price: {item['price']}g\nType: {item['type']}",
                 inline=True,
             )
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if str(interaction.user.id) != self.user_id:
-            await interaction.response.send_message("❌ This shop isn't for you!", ephemeral=True)
-            return False
-        return True
 
     async def _handle_buy(self, interaction: discord.Interaction, item_idx: int):
         user = self.cog.get_user(self.user_id)

@@ -1,6 +1,18 @@
 from typing import Dict
 
-class NeedsModule:
+
+class DictAttrsMixin:
+    """Restores this instance's existing attributes from a saved dict,
+    skipping any key that isn't already an attribute."""
+
+    def from_dict(self, saved: Dict):
+        if not saved: return
+        for key, value in saved.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+
+class NeedsModule(DictAttrsMixin):
     def __init__(self):
         self.hunger = 0.5
         self.thirst = 0.5
@@ -49,13 +61,7 @@ class NeedsModule:
             "toxicity": self.toxicity, "corruption": self.corruption, "exhaustion": self.exhaustion,
         }
 
-    def from_dict(self, saved: Dict):
-        if not saved: return
-        for key, value in saved.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-class DrivesModule:
+class DrivesModule(DictAttrsMixin):
     def __init__(self):
         self.stress = 0.0
         self.anxiety = 0.0
@@ -177,13 +183,7 @@ class DrivesModule:
             f"Focus:      {self.focus:.2f}\n"
         )
 
-    def from_dict(self, saved: Dict):
-        if not saved: return
-        for key, value in saved.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-class MBTIModule:
+class MBTIModule(DictAttrsMixin):
     def __init__(self):
         self.energy = 50
         self.mind = 50
@@ -200,12 +200,6 @@ class MBTIModule:
 
     def to_dict(self) -> Dict:
         return self.__dict__.copy()
-
-    def from_dict(self, saved: Dict):
-        if not saved: return
-        for key, value in saved.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
 
 class EnneagramModule:
     def __init__(self):
