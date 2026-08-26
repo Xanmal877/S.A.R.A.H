@@ -5,10 +5,10 @@ import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
 
+from modules.audio.audio_config import SAMPLE_RATE, CHUNK
+
 logger = logging.getLogger("STT")
 
-SAMPLE_RATE = 16000
-CHUNK = 1280
 SILENCE_RMS_THRESHOLD = 300      # int16 RMS below this counts as silence
 SILENCE_DURATION_S = 1.2         # stop recording after this much trailing silence
 MAX_UTTERANCE_S = 15.0           # hard cap so a stuck mic can't record forever

@@ -6,10 +6,9 @@ import sounddevice as sd
 import openwakeword
 from openwakeword.model import Model
 
-logger = logging.getLogger("WakeWord")
+from modules.audio.audio_config import SAMPLE_RATE, CHUNK
 
-SAMPLE_RATE = 16000
-CHUNK = 1280  # openWakeWord expects 80ms frames at 16kHz
+logger = logging.getLogger("WakeWord")
 
 _MODEL_DIR = os.path.join(os.path.dirname(openwakeword.__file__), "resources", "models")
 
