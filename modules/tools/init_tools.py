@@ -17,6 +17,7 @@ from modules.system.containers import list_containers, list_images, container_lo
 from modules.system.remote_files import push_file_to_peer, pull_file_from_peer
 from modules.audio.tts import tts
 from modules.browser import browser
+from modules.avatar.avatar_tools import avatar_move_to, avatar_say, avatar_play
 import json
 
 async def speak(text: str):
@@ -102,6 +103,12 @@ def register_all_tools():
     registry.register("start_container", start_container, "Starts a stopped container. Args: name (str).")
     registry.register("stop_container", stop_container, "Stops a running container. Args: name (str).")
     registry.register("restart_container", restart_container, "Restarts a container. Args: name (str).")
+
+    # Desktop avatar (Godot overlay - see avatar/, modules/avatar/avatar_bridge.py).
+    # No-op with a message if no avatar process is connected for this character.
+    registry.register("avatar_move_to", avatar_move_to, "Sends the character's desktop avatar to a screen position. Args: x (float), y (float), running (bool, optional).")
+    registry.register("avatar_say", avatar_say, "Shows a speech bubble over the character's desktop avatar. Args: text (str).")
+    registry.register("avatar_play", avatar_play, "Plays a one-off animation (Cast/Attack/Hurt/Death) on the character's desktop avatar. Args: animation (str).")
 
     # Remote file transfer (rsync+SSH, hive-peer restricted - same trust boundary as run_remote_command)
     registry.register("push_file_to_peer", push_file_to_peer, "Copies a local file/directory to a hive peer over rsync+SSH. Args: host (str), local_path (str), remote_path (str).")

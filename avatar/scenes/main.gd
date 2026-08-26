@@ -7,15 +7,20 @@ extends Node
 ## polygon also carving out a notch around the avatar's own body - the old
 ## branch only ever punched a hole for its fixed chat-toggle button, so
 ## clicking directly on her did nothing at all. No utility-AI/wander-timer
-## here on purpose - see avatar_body.gd's header comment. Interaction below
-## (M to walk to a random point, click to react) is a manual debug harness,
-## not real behavior; real behavior comes from Python once the bridge exists.
+## here on purpose - see avatar_body.gd's header comment.
+##
+## Real behavior comes from Python over PythonBridge (scripts/net/) - move_to
+## and play() calls it dispatches, and clicks it forwards back out. Pressing
+## M still walks her to a random point locally; that's a manual connectivity
+## check for when no Python bridge is attached, not real behavior.
 
 const AvatarBodyScene := preload("res://scenes/avatar_body_tama.tscn")
+const PythonBridgeScript := preload("res://scripts/net/python_bridge.gd")
 const CLICK_HALF_SIZE := Vector2(75, 95)  # matches ClickShape in avatar_body_tama.tscn
+const SPEECH_DURATION := 2.5
 
 var avatar: AvatarBody
-var reaction_label: Label
+var speech_label: Label
 
 func _ready() -> void:
 	get_tree().root.transparent_bg = true
@@ -29,26 +34,37 @@ func _ready() -> void:
 	avatar.clicked.connect(_on_avatar_clicked)
 	add_child(avatar)
 
-	reaction_label = Label.new()
-	reaction_label.visible = false
-	reaction_label.add_theme_color_override("font_color", Color.WHITE)
-	reaction_label.add_theme_font_size_override("font_size", 16)
-	reaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reaction_label.custom_minimum_size = Vector2(120, 0)
+	speech_label = Label.new()
+	speech_label.visible = false
+	speech_label.add_theme_color_override("font_color", Color.WHITE)
+	speech_label.add_theme_font_size_override("font_size", 16)
+	speech_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	speech_label.custom_minimum_size = Vector2(120, 0)
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
-	canvas.add_child(reaction_label)
+	canvas.add_child(speech_label)
+
+	var bridge := PythonBridgeScript.new()
+	bridge.avatar = avatar
+	bridge.main = self
+	add_child(bridge)
 
 	print("[Avatar] Ready. Press M to send her to a random point (manual test only).")
 
+func show_speech(text: String) -> void:
+	speech_label.text = text
+	speech_label.visible = true
+	var timer := get_tree().create_timer(SPEECH_DURATION)
+	timer.timeout.connect(func(): speech_label.visible = false)
+
 func _process(_delta: float) -> void:
 	_update_passthrough()
-	if reaction_label.visible:
+	if speech_label.visible:
 		# Label position is its top-left corner, not its center - offset by
 		# half its own width to actually center it over her, and clear a
 		# full head's height (she's 3x-scaled, ~190px tall) above her pivot.
-		var screen_pos := avatar.global_position - Vector2(reaction_label.custom_minimum_size.x / 2.0, 100)
-		reaction_label.position = screen_pos
+		var screen_pos := avatar.global_position - Vector2(speech_label.custom_minimum_size.x / 2.0, 100)
+		speech_label.position = screen_pos
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_M:
@@ -59,10 +75,7 @@ func _input(event: InputEvent) -> void:
 
 func _on_avatar_clicked(button_index: int) -> void:
 	print("[Avatar] Clicked with button ", button_index)
-	reaction_label.text = "Hey!" if button_index == MOUSE_BUTTON_LEFT else "..."
-	reaction_label.visible = true
-	var timer := get_tree().create_timer(1.5)
-	timer.timeout.connect(func(): reaction_label.visible = false)
+	show_speech("Hey!" if button_index == MOUSE_BUTTON_LEFT else "...")
 
 func _update_passthrough() -> void:
 	if not is_instance_valid(avatar):
