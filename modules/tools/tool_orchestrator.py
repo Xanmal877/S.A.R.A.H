@@ -1,6 +1,7 @@
 import json
 import logging
 import asyncio
+import os
 from modules.tools.tool_registry import registry
 from modules.tools.executor import executor
 
@@ -27,13 +28,18 @@ class ToolOrchestrator:
     async def process_request(self, user_request, system_context=""):
         tool_defs = self._get_tool_definitions()
         
-        # Load identity manifest
+        # Load identity manifest (path resolved relative to this file, not
+        # hardcoded, so it survives the project directory moving/renaming)
         identity = ""
+        identity_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "agents", "sarah_identity.md",
+        )
         try:
-            with open("/home/xanmal/Documents/Projects/repositories/Python/S.A.R.A.H/agents/sarah_identity.md", "r") as f:
+            with open(identity_path, "r") as f:
                 identity = f.read()
         except Exception as e:
-            logger.warning(f"Could not load identity manifest: {e}")
+            logger.warning(f"Could not load identity manifest from {identity_path}: {e}")
 
         messages = [
             {
