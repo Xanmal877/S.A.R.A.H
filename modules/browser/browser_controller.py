@@ -1,7 +1,10 @@
 import logging
 import os
+import time
 
 logger = logging.getLogger("BrowserController")
+
+NETWORK_LOG_CAP = 300
 
 PROFILE_DIR = os.path.expanduser("~/.sarah/browser_profile")
 
@@ -36,6 +39,8 @@ class BrowserController:
         self._playwright = None
         self._context = None
         self._page = None
+        self._network_log = []
+        self._tracing_active = False
 
     async def _ensure_started(self):
         if self._page is not None:
@@ -55,7 +60,32 @@ class BrowserController:
         # she hits one of those instead of fighting it.
         await Stealth().apply_stealth_async(self._context)
         self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+        self._page.on("response", self._on_response)
         logger.info(f"Browser started (Firefox, profile={PROFILE_DIR}, stealth applied)")
+
+    def _on_response(self, response):
+        try:
+            entry = {
+                "method": response.request.method,
+                "url": response.url,
+                "status": response.status,
+                "resource_type": response.request.resource_type,
+            }
+        except Exception:
+            return
+        self._network_log.append(entry)
+        if len(self._network_log) > NETWORK_LOG_CAP:
+            self._network_log.pop(0)
+
+    async def _debug_screenshot(self) -> str:
+        """Best-effort screenshot taken when a browser action fails, so the failure
+        report includes what the page actually looked like."""
+        try:
+            path = os.path.expanduser(f"~/.sarah/browser_error_{int(time.time())}.png")
+            await self._page.screenshot(path=path)
+            return path
+        except Exception:
+            return ""
 
     async def _bot_check_notice(self) -> str:
         try:
@@ -77,24 +107,87 @@ class BrowserController:
         await self._ensure_started()
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
-        await self._page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        try:
+            await self._page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        except Exception as e:
+            shot = await self._debug_screenshot()
+            return f"Error navigating to {url}: {e}" + (f" (screenshot: {shot})" if shot else "")
         return f"Navigated to {self._page.url}{await self._bot_check_notice()}"
 
     async def click(self, text: str) -> str:
         """Clicks the first visible element matching `text` (link, button, etc.)."""
         await self._ensure_started()
-        locator = self._page.get_by_text(text, exact=False).first
-        await locator.click(timeout=10000)
+        try:
+            locator = self._page.get_by_text(text, exact=False).first
+            await locator.click(timeout=10000)
+        except Exception as e:
+            shot = await self._debug_screenshot()
+            return f"Error clicking '{text}': {e}" + (f" (screenshot: {shot})" if shot else "")
         return f"Clicked element matching '{text}'"
 
     async def type_text(self, text: str, selector: str = None) -> str:
         """Types into the currently focused element, or into `selector` if given."""
         await self._ensure_started()
-        if selector:
-            await self._page.fill(selector, text, timeout=10000)
-        else:
-            await self._page.keyboard.type(text)
+        try:
+            if selector:
+                await self._page.fill(selector, text, timeout=10000)
+            else:
+                await self._page.keyboard.type(text)
+        except Exception as e:
+            shot = await self._debug_screenshot()
+            return f"Error typing text: {e}" + (f" (screenshot: {shot})" if shot else "")
         return f"Typed text ({len(text)} chars)"
+
+    async def accessibility_tree(self, selector: str = "body", max_chars: int = 4000) -> str:
+        """Returns the accessibility (ARIA) tree for `selector` - roles and accessible
+        names of what's on the page, useful for finding what's clickable without a
+        screenshot. Args: selector (str, optional CSS selector, defaults to the whole
+        page), max_chars (int, optional)."""
+        await self._ensure_started()
+        try:
+            snapshot = await self._page.locator(selector).aria_snapshot()
+        except Exception as e:
+            return f"Error reading accessibility tree: {e}"
+        return snapshot[:max_chars]
+
+    def network_log(self, resource_type: str = None, limit: int = 50) -> str:
+        """Returns recently observed network responses on the current page (method, URL,
+        status, resource type). Args: resource_type (str, optional filter e.g. 'xhr',
+        'fetch', 'document', 'image'), limit (int, optional, most recent first)."""
+        entries = self._network_log
+        if resource_type:
+            entries = [e for e in entries if e["resource_type"] == resource_type]
+        if not entries:
+            return "No matching network activity recorded yet."
+        recent = entries[-limit:]
+        lines = [f"{e['status']} {e['method']} [{e['resource_type']}] {e['url']}" for e in recent]
+        return "\n".join(reversed(lines))
+
+    def clear_network_log(self) -> str:
+        count = len(self._network_log)
+        self._network_log.clear()
+        return f"Cleared {count} network log entries."
+
+    async def start_trace(self) -> str:
+        """Starts a Playwright trace (screenshots + DOM snapshots + network) of the
+        current browser session, for post-mortem debugging with `stop_trace`."""
+        await self._ensure_started()
+        if self._tracing_active:
+            return "A trace is already running."
+        await self._context.tracing.start(screenshots=True, snapshots=True, sources=True)
+        self._tracing_active = True
+        return "Trace started."
+
+    async def stop_trace(self, path: str = None) -> str:
+        """Stops the running trace and saves it as a .zip viewable at
+        https://trace.playwright.dev. Args: path (str, optional)."""
+        await self._ensure_started()
+        if not self._tracing_active:
+            return "No trace is currently running."
+        path = os.path.expanduser(path or f"~/.sarah/browser_trace_{int(time.time())}.zip")
+        await self._context.tracing.stop(path=path)
+        self._tracing_active = False
+        return f"Trace saved to {path}"
 
     async def read_page(self, max_chars: int = 3000) -> str:
         """Returns the visible text content of the current page."""

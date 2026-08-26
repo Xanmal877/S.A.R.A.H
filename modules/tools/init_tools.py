@@ -53,6 +53,11 @@ def register_all_tools():
     registry.register("browser_type", browser.type_text, "Types text into the focused element, or into a CSS selector if given. Args: text (str), selector (str, optional).")
     registry.register("browser_read_page", browser.read_page, "Returns the visible text content of the current page.")
     registry.register("browser_screenshot", browser.screenshot, "Takes a screenshot of the current page. Args: path (str, optional).")
+    registry.register("browser_accessibility_tree", browser.accessibility_tree, "Returns the accessibility (ARIA) tree for the page or a selector - roles/names of what's on screen, without a screenshot. Args: selector (str, optional), max_chars (int, optional).")
+    registry.register("browser_network_log", browser.network_log, "Returns recently observed network responses on the current page. Args: resource_type (str, optional filter), limit (int, optional).")
+    registry.register("browser_clear_network_log", browser.clear_network_log, "Clears the recorded network log.")
+    registry.register("browser_start_trace", browser.start_trace, "Starts a Playwright trace (screenshots/DOM/network) of the browser session for later debugging.")
+    registry.register("browser_stop_trace", browser.stop_trace, "Stops the running trace and saves it as a .zip viewable at trace.playwright.dev. Args: path (str, optional).")
 
     # Desktop integration tools
     registry.register("get_clipboard", get_clipboard, "Reads the current text contents of the system clipboard.")
