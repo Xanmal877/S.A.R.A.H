@@ -7,6 +7,9 @@ from modules.personalityModule import PersonalityModule
 from mainAgent import SarahStateMachine
 from modules.characterManager import CharacterManager
 from modules.soul import Soul
+from modules.soul.persistence import save_mental_state
+
+MENTAL_STATE_SAVE_INTERVAL_S = 30
 
 
 class BaseCharacter:
@@ -105,20 +108,31 @@ class BaseCharacter:
         await self._start_llm_server()
         await self._start_hive()
 
-        while True:
-            # Regeneration (equivalent to _physics_process)
-            self.character.Regeneration(0.1)
+        seconds_since_save = 0.0
+        try:
+            while True:
+                # Regeneration (equivalent to _physics_process)
+                self.character.Regeneration(0.1)
 
-            # Needs/drives drift - keeps the chaos-mind explore/social/rest
-            # drives (modules/soul/mental_state/mental_state.py) alive so
-            # personality actually shifts internal state over time.
-            self.soul.mental_state.tick(0.1)
+                # Needs/drives drift - keeps the chaos-mind explore/social/rest
+                # drives (modules/soul/mental_state/mental_state.py) alive so
+                # personality actually shifts internal state over time.
+                self.soul.mental_state.tick(0.1)
 
-            # State machine logic
-            await self.stateMachine.StateMachineLogic()
-            
-            # Wait before next cycle
-            await asyncio.sleep(1.0)
+                # State machine logic
+                await self.stateMachine.StateMachineLogic()
+
+                # Persist mood/needs/drives periodically, not every tick -
+                # this is state, not a hot loop write. See modules/soul/persistence.py.
+                seconds_since_save += 1.0
+                if seconds_since_save >= MENTAL_STATE_SAVE_INTERVAL_S:
+                    save_mental_state(self.soul.mental_state)
+                    seconds_since_save = 0.0
+
+                # Wait before next cycle
+                await asyncio.sleep(1.0)
+        finally:
+            save_mental_state(self.soul.mental_state)
 
 async def StateMachineLogic(self):
     """Override this in subclasses"""

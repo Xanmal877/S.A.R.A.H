@@ -179,6 +179,7 @@ class Soul:
         from .exploration_module import ExplorationModule
         from .party_module import PartyModule
         from .detection_module import DetectionModule
+        from .identity_state import identity_state
 
         self.mental_state = MentalState()
         self.social_state = SocialState()
@@ -186,6 +187,21 @@ class Soul:
         self.exploration = ExplorationModule(self.soul_data)
         self.party = PartyModule(self.soul_data)
         self.detection = DetectionModule()
+
+        # Opinions/interests/dislikes/relationship notes/goals - the facts
+        # that make Sarah Sarah, independent of which LLM is reasoning about
+        # them. Shared singleton (see identity_state.py) so tool calls (which
+        # don't get a handle to this Soul instance - see
+        # modules/tools/executor.py) write into the same object this reads.
+        self.identity = identity_state
+
+        # Restore mood/needs/drives from the last run instead of resetting
+        # to defaults every process start (see modules/soul/persistence.py).
+        # mbti (the personality baseline) gets overwritten right after this
+        # by SetupPersonality() in agents/*.py - that's intentional, mbti is
+        # treated as static configuration, not state that drifts and persists.
+        from .persistence import load_mental_state
+        self.mental_state.startup(is_generated=False, existing_save=load_mental_state())
 
     @property
     def uid(self) -> int:
