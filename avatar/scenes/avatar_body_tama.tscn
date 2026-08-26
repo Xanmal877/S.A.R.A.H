@@ -1,0 +1,35 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/body/avatar_body.gd" id="1_body"]
+[ext_resource type="Script" path="res://scripts/body/smart_animplayer.gd" id="2_anim"]
+[ext_resource type="Texture2D" path="res://assets/spritesheets/characters/tama/fuyuki_tamaneko_sheet.png" id="3_tex"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(8, 8)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_click"]
+size = Vector2(50, 63)
+
+[node name="AvatarBody" type="CharacterBody2D"]
+scale = Vector2(3, 3)
+script = ExtResource("1_body")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_body")
+
+[node name="Character Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("3_tex")
+hframes = 11
+vframes = 6
+
+[node name="SmartAnimationPlayer" type="AnimationPlayer" parent="." node_paths=PackedStringArray("body")]
+script = ExtResource("2_anim")
+body = NodePath("..")
+
+[node name="ClickArea" type="Area2D" parent="."]
+input_pickable = true
+
+[node name="ClickShape" type="CollisionShape2D" parent="ClickArea"]
+shape = SubResource("RectangleShape2D_click")
+
+[connection signal="input_event" from="ClickArea" to="." method="_on_click_area_input_event"]
