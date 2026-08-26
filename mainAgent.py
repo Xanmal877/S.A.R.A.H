@@ -91,8 +91,10 @@ class SarahStateMachine(StateMachine):
             await self.screen_watcher.maybe_capture()
             screen_text = self.screen_watcher.get_summary()
             hive_summary = self.hive_core.get_hive_summary() if self.hive_core else None
+            identity_summary = self.agent.soul.identity.summary()
             world_state = self.observation_module.get_world_state(
-                self.agent, screen_text=screen_text, hive_summary=hive_summary
+                self.agent, screen_text=screen_text, hive_summary=hive_summary,
+                identity_summary=identity_summary,
             )
 
             # Use the ToolOrchestrator for autonomous reasoning

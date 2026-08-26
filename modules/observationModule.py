@@ -9,7 +9,7 @@ class ObservationModule:
     def __init__(self, agent=None):
         self.agent = agent
 
-    def get_world_state(self, agent, screen_text: str = None, hive_summary: str = None) -> str:
+    def get_world_state(self, agent, screen_text: str = None, hive_summary: str = None, identity_summary: str = None) -> str:
         """
         Returns a formatted string representing the current state of the world.
 
@@ -21,6 +21,12 @@ class ObservationModule:
 
         `hive_summary` is HiveCore.get_hive_summary() (modules/hive/core.py)
         - only populated on role="core" nodes. Pass None to omit [HIVE].
+
+        `identity_summary` is agent.soul.identity.summary() - Sarah's own
+        persistent opinions/interests/dislikes/goals/relationship notes
+        (modules/soul/identity_state/), included so the LLM reads what she
+        already wants/thinks each cycle instead of only recalling it when it
+        happens to call a memory tool. Pass None to omit [SARAH].
         """
         # System Metrics
         cpu_usage = psutil.cpu_percent()
@@ -56,5 +62,8 @@ class ObservationModule:
 
         if hive_summary is not None:
             world_state += f"\n\n[HIVE] (other Sarah nodes on the network)\n{hive_summary}"
+
+        if identity_summary is not None:
+            world_state += f"\n\n[SARAH] (her own persistent opinions/interests/goals - not improvised)\n{identity_summary}"
 
         return world_state
