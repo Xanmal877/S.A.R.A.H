@@ -8,6 +8,7 @@ from mainAgent import SarahStateMachine
 from modules.characterManager import CharacterManager
 from modules.soul import Soul
 from modules.soul.persistence import save_mental_state
+from modules.avatar import AvatarBridge, register_bridge, AVATAR_PORTS, DEFAULT_PORT
 
 MENTAL_STATE_SAVE_INTERVAL_S = 30
 
@@ -102,12 +103,30 @@ class BaseCharacter:
             cfg.get("llama_port", 8090),
         )
 
+    async def _start_avatar_bridge(self):
+        """
+        Starts this character's desktop-avatar IPC (modules/avatar/) so the
+        avatar_move_to/avatar_say/avatar_play tools have something to talk
+        to. Listens whether or not a Godot avatar process ever connects -
+        see AvatarBridge's own docstring for why "no avatar" is a normal,
+        not an error, state.
+        """
+        port = AVATAR_PORTS.get(self.character_id, DEFAULT_PORT)
+        self.avatar_bridge = AvatarBridge(character_id=self.character_id, port=port, on_event=self._on_avatar_event)
+        await self.avatar_bridge.start()
+        register_bridge(self.character_id, self.avatar_bridge)
+
+    def _on_avatar_event(self, name: str, args: dict) -> None:
+        # Just observability for now - no reaction logic invented here.
+        print(f"[{self.characterName}] Avatar event: {name} {args}")
+
     async def Run(self):
         """Main agent loop - equivalent to your _process function"""
         print(f"Starting {self.characterName} with personality: {self.personalityModule.get_debug_summary()}")
 
         await self._start_llm_server()
         await self._start_hive()
+        await self._start_avatar_bridge()
 
         seconds_since_save = 0.0
         try:
