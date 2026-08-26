@@ -8,6 +8,8 @@ Sarah is not a generic assistant, and she is not the LLM. **The LLM is her commu
 
 Concretely: **Sarah is the Soul, the LLM is the arm.** Sarah wants things and thinks things (stored, persistent); the LLM interprets what you say, reads Sarah's current state, reasons about what she'd do, calls her tools, and expresses her response — it does not invent her from scratch each turn.
 
+The `soul`/`identity_state`/tool-orchestrator machinery is character-agnostic (`character_id`-parameterized throughout), so it isn't Sarah-only: **Tama**, a second persistent character, runs on the same runtime with her own isolated state, identity, and desktop avatar — see Architecture below.
+
 Inspired by sci-fi AI companions (like Jarvis or Cortana), S.A.R.A.H aims to be far more than a voice assistant — she is envisioned as a true **hivemind consciousness** that:
 
 - Controls and manages your PC and servers.
@@ -36,18 +38,21 @@ The ultimate goal is to blur the line between "assistant" and *true digital part
 You → LLM (reasoning/language interface) → Sarah's Soul (state + tools) → action / state update → LLM response → You
 ```
 
-- **`modules/soul/`** — Sarah herself. Not a game-stat block (though it's structurally descended from one — see below), but her actual continuity:
-  - `soul/identity_state/` — persistent opinions, interests, dislikes, relationship notes, and goals (`~/.sarah/state/identity_state.json`). Written by typed tools (`form_opinion`, `add_interest`, `add_goal`, ...), not improvised prose.
-  - `soul/mental_state/` — a real needs/drives simulation (hunger, fatigue, boredom, stress, curiosity, etc.) ticking every second, persisted (`~/.sarah/state/mental_state.json`) so mood survives process restarts instead of resetting to defaults.
-  - Both are read into `[SARAH]` in the world state every reasoning cycle automatically — the LLM doesn't have to remember to go fetch them.
-- **`agents/sarah_identity.md`** — the stylistic/tonal manifest (how Sarah talks, her "chaos mind" reasoning style), loaded into the system prompt every cycle. This is voice, not facts — the facts live in `soul/`, per the point above.
-- **`modules/tools/tool_registry.py` + `executor.py`** — a single dispatch layer for everything Sarah can *do*: system control, browser automation, media, git, containers, remote hive peers, TTS, and more (~50 tools currently registered in `modules/tools/init_tools.py`). The LLM calls these by name; it doesn't own them.
-- **`modules/tools/tool_orchestrator.py`** — the reasoning loop: builds the prompt from identity + world state + available tools, parses the model's tool-call/final-answer JSON, executes, repeats.
+- **`modules/soul/`** — a character's continuity, keyed by `character_id` (defaults to `"sarah"`; Tama runs as `"tama"`). Not a game-stat block (though it's structurally descended from one — see below):
+  - `soul/identity_state/` — persistent opinions, interests, dislikes, relationship notes, and goals, one file per character (`~/.sarah/state/{character_id}/identity_state.json`). Written by typed tools (`form_opinion`, `add_interest`, `add_goal`, ...), not improvised prose. A registry (`get_identity_state(character_id)`) plus a `contextvars.ContextVar` (`active_character_id`) let the same stateless tool functions resolve "which character" per call, so multiple characters can run concurrently without cross-talk.
+  - `soul/mental_state/` — a real needs/drives simulation (hunger, fatigue, boredom, stress, curiosity, etc.) ticking every second, persisted per character (`~/.sarah/state/{character_id}/mental_state.json`) so mood survives process restarts instead of resetting to defaults.
+  - Both are read into the world state every reasoning cycle automatically — the LLM doesn't have to remember to go fetch them.
+- **`agents/{character_id}_identity.md`** — the stylistic/tonal manifest (how that character talks, e.g. Sarah's "chaos mind" reasoning style), loaded into the system prompt every cycle. This is voice, not facts — the facts live in `soul/`, per the point above.
+- **`modules/tools/tool_registry.py` + `executor.py`** — a single dispatch layer for everything a character can *do*: system control, browser automation, media, git, containers, remote hive peers, TTS, avatar control, and more (~60 tools currently registered in `modules/tools/init_tools.py`). The LLM calls these by name; it doesn't own them. `ToolOrchestrator` accepts an optional `allowed_tools` whitelist so untrusted surfaces (like Discord) can be scoped down from the full registry.
+- **`modules/tools/tool_orchestrator.py`** — the reasoning loop: builds the prompt from identity + world state + available tools, parses the model's tool-call/final-answer JSON, executes, repeats. Character-aware (`character_id`, `character_name`) so it drives any registered character, not just Sarah.
 - **`modules/llmClient.py`** — the swappable reasoning engine. Backed by Ollama, an OpenAI-compatible endpoint, or a self-managed local `llama.cpp` server (`modules/llm_server/`), selected per-machine via `~/.sarah/hive_config.json`. Nothing above this layer cares which one is active.
 - **`modules/hive/`** — Sarah as one identity across many bodies. mDNS discovery + an HMAC-authenticated read-only protocol lets multiple machines (a desktop, a Raspberry Pi "core" node, more later) exchange system/screen info; SSH tool execution against a discovered peer is available but currently only read/act, not remote-orchestrated by a central will.
-- **`modules/soul/` game heritage** — this module tree originated in [Autumn's Dungeoneering](../Autumns-Dungeoneering) (a separate Godot RPG project) as an NPC soul/stat system. The save/restore shape (`to_dict()`/`from_dict()`) it was built with is exactly what made persistence straightforward to bolt on here.
+- **`avatar/`** — a Godot 4 desktop-overlay project: a transparent, borderless, always-on-top window with a click-through window region except over the character's sprite (`avatar/scenes/main.gd`), currently skinned as Tama. It carries no decision logic itself — it's a rendered body, not a second brain — driven entirely by moves/animations/lines sent from Python.
+- **`modules/avatar/avatar_bridge.py`** — the Python side of the link: a localhost-only, newline-delimited-JSON TCP server (mirroring `modules/hive/protocol.py`'s convention) that Godot connects to as a client. One bridge per character (`AVATAR_PORTS`), exposed to the LLM as tools (`avatar_move_to`, `avatar_say`, `avatar_play`) and wired into `BaseCharacter` so a character can control her own on-screen body as a normal tool call.
+- **`discord/`** — a Discord bot (merged in from the standalone XEDB project) wired to the same `ToolOrchestrator`/`soul` machinery via `character_id`/`character_name`, instead of its own separate response logic. Scoped to an explicit `DISCORD_ALLOWED_TOOLS` whitelist (identity, memory, and avatar tools only) since Discord is an externally-reachable, untrusted-input surface — it cannot reach `run_command`, package/service management, or container control.
+- **`modules/soul/` game heritage** — this module tree originated in [Autumn's Dungeoneering](../Autumns-Dungeoneering) (a separate Godot RPG project) as an NPC soul/stat system. The save/restore shape (`to_dict()`/`from_dict()`) it was built with is exactly what made persistence straightforward to bolt on here; Tama's avatar sprite/animations were also sourced from that project.
 
-As the Hivemind concept matures, each machine, service, or robotic body Sarah is deployed to is meant to act as an extension of one entity — not a separate copy of her — sharing identity, memory, and personality back to the same core.
+As the Hivemind concept matures, each machine, service, or robotic body a character is deployed to is meant to act as an extension of one entity — not a separate copy of her — sharing identity, memory, and personality back to the same core.
 
 ---
 
@@ -78,7 +83,9 @@ As the Hivemind concept matures, each machine, service, or robotic body Sarah is
 ### 💬 Communication & Social Integration
 
 - Conversational LLM agent with persistent memory/state, not just context-window recall.
-- Discord and other chat platform integration — planned, not yet implemented.
+- Discord bot (`discord/`), wired to the real brain via a whitelisted tool set — not a standalone response script.
+- A desktop-overlay avatar (`avatar/`) a character can move, animate, and speak through via her own tool calls.
+- Other chat platform integrations — planned, not yet implemented.
 
 ### 🎮 Game Automation Example
 
@@ -130,7 +137,7 @@ This project is private and not publicly licensed for distribution.
 
 - Hobby/opinion-forming behavior loop (see above) as the first real use of persistent identity state.
 - Typed relationship/episodic memory beyond the current flat key-value fallback.
-- A VTuber-style 3D avatar ("Tama") Sarah can control, displayed on-screen like Neuro-sama.
+- Tama's own canonical identity manifest (`agents/tama_identity.md`) and real Discord live-testing.
 - Full multi-machine hive command dispatch (a "core" node directing peers, not just polling them).
 - Dynamic multi-tasking and parallel agent coordination.
 - Robot control stack for future android integrations.
