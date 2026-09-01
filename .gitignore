@@ -2,3 +2,5 @@
 /llama.cpp/
 /models/
 
+# Local agent/session artifacts
+session-ses_*.md
