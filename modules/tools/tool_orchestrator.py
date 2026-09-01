@@ -1,9 +1,10 @@
 import json
 import logging
 import os
-from modules.tools.tool_registry import registry
-from modules.tools.executor import executor
+
 from modules.soul.identity_state.identity_state import active_character_id
+from modules.tools.executor import executor
+from modules.tools.tool_registry import registry
 
 logger = logging.getLogger("ToolOrchestrator")
 
@@ -143,7 +144,7 @@ class ToolOrchestrator:
                     
             except Exception as e:
                 logger.exception(f"Error in reasoning cycle: {e}")
-                return f"Error during reasoning: {str(e)}"
+                return f"Error during reasoning: {e!s}"
 
         return "Error: Maximum reasoning iterations reached without a final answer."
 

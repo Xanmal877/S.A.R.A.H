@@ -1,6 +1,8 @@
 import json
-from modules.memory.persistent_memory import memory
+
 from modules.memory.change_history import history
+from modules.memory.persistent_memory import memory
+
 
 def store_memory(key: str, value: str):
     """Stores a piece of information in long-term memory."""

@@ -1,9 +1,8 @@
-import json
-import os
-import logging
 import contextvars
+import json
+import logging
+import os
 from datetime import datetime
-from typing import Dict
 
 logger = logging.getLogger("IdentityState")
 
@@ -124,7 +123,7 @@ class IdentityState:
 # reasoning loops running side by side - each see their own value instead of
 # racing on a shared one; ToolOrchestrator.process_request sets it from
 # self.agent.character_id before running a character's tool-call loop.
-_identity_states: Dict[str, "IdentityState"] = {}
+_identity_states: dict[str, "IdentityState"] = {}
 active_character_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "active_character_id", default="sarah"
 )

@@ -3,12 +3,13 @@
 # ===============================
 
 import asyncio
-from modules.personalityModule import PersonalityModule
+
 from mainAgent import SarahStateMachine
+from modules.avatar import AVATAR_PORTS, DEFAULT_PORT, AvatarBridge, register_bridge
 from modules.characterManager import CharacterManager
+from modules.personalityModule import PersonalityModule
 from modules.soul import Soul
 from modules.soul.persistence import save_mental_state
-from modules.avatar import AvatarBridge, register_bridge, AVATAR_PORTS, DEFAULT_PORT
 
 MENTAL_STATE_SAVE_INTERVAL_S = 30
 
@@ -60,7 +61,7 @@ class BaseCharacter:
         HiveCore poller that aggregates other peers' info. See
         modules/hive/ and the [HIVE] section of ObservationModule.
         """
-        from modules.hive import load_config, HiveDiscovery, HiveServer, HiveCore
+        from modules.hive import HiveCore, HiveDiscovery, HiveServer, load_config
 
         hive_cfg = load_config()
         screen_watcher = getattr(self.stateMachine, "screen_watcher", None)
@@ -156,4 +157,3 @@ class BaseCharacter:
 
 async def StateMachineLogic(self):
     """Override this in subclasses"""
-    pass

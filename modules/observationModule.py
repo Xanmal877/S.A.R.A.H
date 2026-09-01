@@ -1,5 +1,7 @@
-import psutil
 from datetime import datetime
+
+import psutil
+
 
 class ObservationModule:
     """

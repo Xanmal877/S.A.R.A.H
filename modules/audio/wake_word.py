@@ -2,11 +2,11 @@ import asyncio
 import logging
 import os
 
-import sounddevice as sd
 import openwakeword
+import sounddevice as sd
 from openwakeword.model import Model
 
-from modules.audio.audio_config import SAMPLE_RATE, CHUNK
+from modules.audio.audio_config import CHUNK, SAMPLE_RATE
 
 logger = logging.getLogger("WakeWord")
 

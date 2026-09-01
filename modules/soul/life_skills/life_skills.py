@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict
+
 
 class LifeSkill(Enum):
     # Combat (1000-1009)
@@ -57,7 +57,7 @@ class LevelModule:
         self.current_xp = 0.0
         self.required_xp = 100.0
 
-    def startup(self, existing_save: Dict = {}):
+    def startup(self, existing_save: dict = {}):
         self.from_dict(existing_save)
 
     def give_xp(self, amount: float):
@@ -67,10 +67,10 @@ class LevelModule:
             self.current_level += 1
             self.required_xp *= 1.2
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {"current_level": self.current_level, "current_xp": self.current_xp, "required_xp": self.required_xp}
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         self.current_level = saved.get("current_level", 1)
         self.current_xp = saved.get("current_xp", 0.0)
@@ -82,13 +82,13 @@ class LiteracyModule:
         self.total_words_learned = 0
         self.reading_sessions = 0
 
-    def startup(self, existing_save: Dict = {}):
+    def startup(self, existing_save: dict = {}):
         self.from_dict(existing_save)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {"total_items_read": self.total_items_read, "total_words_learned": self.total_words_learned, "reading_sessions": self.reading_sessions}
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         self.total_items_read = saved.get("total_items_read", 0)
         self.total_words_learned = saved.get("total_words_learned", 0)
@@ -98,13 +98,13 @@ class ProfessionsModule:
     def __init__(self):
         self.professions = {}
 
-    def startup(self, existing_save: Dict = {}):
+    def startup(self, existing_save: dict = {}):
         self.from_dict(existing_save)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {"professions": self.professions}
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         self.professions = saved.get("professions", {}).copy()
 
@@ -113,10 +113,10 @@ class LifeSkills:
         self.level_module = LevelModule()
         self.literacy = LiteracyModule()
         self.professions = ProfessionsModule()
-        self.skills_dict: Dict[LifeSkill, float] = {}
+        self.skills_dict: dict[LifeSkill, float] = {}
         self.total_life_xp = 0.0
 
-    def startup(self, species, primary_element, secondary_element, existing_save: Dict = {}):
+    def startup(self, species, primary_element, secondary_element, existing_save: dict = {}):
         if existing_save:
             self.from_dict(existing_save)
         else:
@@ -131,7 +131,7 @@ class LifeSkills:
         self.total_life_xp += amount
         self.level_module.give_xp(amount)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "skills": self.skills_dict.copy(),
             "total": self.total_life_xp,
@@ -140,7 +140,7 @@ class LifeSkills:
             "professions": self.professions.to_dict(),
         }
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         self.skills_dict = saved.get("skills", {}).copy()
         self.total_life_xp = saved.get("total", 0.0)

@@ -1,5 +1,6 @@
 from modules.personalityModule import PersonalityModule
 
+
 class PersonaMapper:
     """
     Translates numerical personality traits from a PersonalityModule

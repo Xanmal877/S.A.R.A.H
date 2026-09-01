@@ -3,11 +3,12 @@
 # ===============================
 
 import random
-from stateMachine import ExploreState, IdleState, StateMachine, WorkState
+
 from modules.llmClient import LLMClient
-from modules.personaMapper import PersonaMapper
 from modules.observationModule import ObservationModule
 from modules.perception import ScreenWatcher
+from modules.personaMapper import PersonaMapper
+from stateMachine import ExploreState, IdleState, StateMachine, WorkState
 
 
 class SarahStateMachine(StateMachine):

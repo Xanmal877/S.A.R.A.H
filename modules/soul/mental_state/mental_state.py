@@ -1,11 +1,10 @@
-from typing import Dict
 
 
 class DictAttrsMixin:
     """Restores this instance's existing attributes from a saved dict,
     skipping any key that isn't already an attribute."""
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         for key, value in saved.items():
             if hasattr(self, key):
@@ -44,7 +43,7 @@ class NeedsModule(DictAttrsMixin):
         "exhaustion": 0.0002,
     }
 
-    def startup(self, existing_save: Dict = {}):
+    def startup(self, existing_save: dict = {}):
         self.from_dict(existing_save)
 
     def tick(self, delta: float):
@@ -52,7 +51,7 @@ class NeedsModule(DictAttrsMixin):
             value = getattr(self, key) + rate * delta
             setattr(self, key, max(0.0, min(1.0, value)))
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "hunger": self.hunger, "thirst": self.thirst, "fatigue": self.fatigue,
             "bladder": self.bladder, "warmth": self.warmth, "comfort": self.comfort,
@@ -87,7 +86,7 @@ class DrivesModule(DictAttrsMixin):
         "spirituality": 0.00005,
     }
 
-    def startup(self, existing_save: Dict = {}, needs=None, mbti=None):
+    def startup(self, existing_save: dict = {}, needs=None, mbti=None):
         self.from_dict(existing_save)
         self.calculate_all(needs, mbti)
 
@@ -97,7 +96,7 @@ class DrivesModule(DictAttrsMixin):
             setattr(self, key, max(0.0, min(1.0, value)))
         self.calculate_all(needs, mbti)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return self.__dict__.copy()
 
     @staticmethod
@@ -195,10 +194,10 @@ class MBTIModule(DictAttrsMixin):
         self.empathy = 0.5
         self.patience = 0.5
 
-    def startup(self, existing_save: Dict = {}):
+    def startup(self, existing_save: dict = {}):
         self.from_dict(existing_save)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return self.__dict__.copy()
 
 class EnneagramModule:
@@ -206,13 +205,13 @@ class EnneagramModule:
         self.type = "NONE"
         self.values = {}
 
-    def startup(self, is_generated: bool, existing_save: Dict = {}):
+    def startup(self, is_generated: bool, existing_save: dict = {}):
         self.from_dict(existing_save)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {"type": self.type, "values": self.values}
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         self.type = saved.get("type", "NONE")
         self.values = saved.get("values", {})
@@ -224,7 +223,7 @@ class MentalState:
         self.mbti = MBTIModule()
         self.enneagram = EnneagramModule()
 
-    def startup(self, is_generated: bool, existing_save: Dict = {}):
+    def startup(self, is_generated: bool, existing_save: dict = {}):
         self.needs.startup(existing_save.get("needs", {}))
         self.mbti.startup(existing_save.get("mbti", {}))
         self.enneagram.startup(is_generated, existing_save.get("enneagram", {}))
@@ -234,7 +233,7 @@ class MentalState:
         self.needs.tick(delta)
         self.drives.tick(delta, self.needs, self.mbti)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "needs": self.needs.to_dict(),
             "drives": self.drives.to_dict(),
@@ -242,7 +241,7 @@ class MentalState:
             "enneagram": self.enneagram.to_dict(),
         }
 
-    def from_dict(self, saved: Dict):
+    def from_dict(self, saved: dict):
         if not saved: return
         self.needs.from_dict(saved.get("needs", {}))
         self.drives.from_dict(saved.get("drives", {}))

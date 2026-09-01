@@ -2,12 +2,14 @@
 # STATE MACHINE (Direct Port)
 # ===============================
 
-import random
-import os
 import glob
+import os
+import random
+from datetime import datetime
+
 import psutil
 import requests
-from datetime import datetime
+
 
 class StateMachine:
     def __init__(self, agent=None):

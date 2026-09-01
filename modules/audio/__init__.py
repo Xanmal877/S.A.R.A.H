@@ -1,3 +1,3 @@
-from .tts import tts, TextToSpeech
+from .tts import TextToSpeech, tts
 
-__all__ = ["tts", "TextToSpeech"]
+__all__ = ["TextToSpeech", "tts"]

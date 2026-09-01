@@ -1,23 +1,62 @@
-from modules.tools.tool_registry import registry
-from modules.system.system_info import get_system_info
-from modules.system.packages import install_package, remove_package, search_packages, update_system
-from modules.system.services import service_status, start_service, stop_service, restart_service, list_failed_services
-from modules.system.shell import shell
-from modules.memory.memory_tools import store_memory, retrieve_memory, record_change, get_recent_changes
-from modules.memory.identity_tools import form_opinion, get_opinion, add_interest, add_dislike, add_relationship_note, add_goal, complete_goal, get_identity_summary
-from modules.system.remote_shell import run_remote_command
-from modules.system.clipboard import get_clipboard, set_clipboard
-from modules.system.notifications import send_notification
-from modules.system.media import media_play_pause, media_next, media_previous, media_status, list_media_players
-from modules.system.journal import get_recent_logs
-from modules.system.windows import list_windows
-from modules.system.file_watcher import diff_directory, check_new_downloads
-from modules.system.git_tools import git_status, git_log, git_diff, git_pull, git_commit
-from modules.system.containers import list_containers, list_images, container_logs, start_container, stop_container, restart_container
-from modules.system.remote_files import push_file_to_peer, pull_file_from_peer
 from modules.audio.tts import tts
+from modules.avatar.avatar_tools import avatar_move_to, avatar_play, avatar_say
 from modules.browser import browser
-from modules.avatar.avatar_tools import avatar_move_to, avatar_say, avatar_play
+from modules.memory.identity_tools import (
+    add_dislike,
+    add_goal,
+    add_interest,
+    add_relationship_note,
+    complete_goal,
+    form_opinion,
+    get_identity_summary,
+    get_opinion,
+)
+from modules.memory.memory_tools import (
+    get_recent_changes,
+    record_change,
+    retrieve_memory,
+    store_memory,
+)
+from modules.system.clipboard import get_clipboard, set_clipboard
+from modules.system.containers import (
+    container_logs,
+    list_containers,
+    list_images,
+    restart_container,
+    start_container,
+    stop_container,
+)
+from modules.system.file_watcher import check_new_downloads, diff_directory
+from modules.system.git_tools import git_commit, git_diff, git_log, git_pull, git_status
+from modules.system.journal import get_recent_logs
+from modules.system.media import (
+    list_media_players,
+    media_next,
+    media_play_pause,
+    media_previous,
+    media_status,
+)
+from modules.system.notifications import send_notification
+from modules.system.packages import (
+    install_package,
+    remove_package,
+    search_packages,
+    update_system,
+)
+from modules.system.remote_files import pull_file_from_peer, push_file_to_peer
+from modules.system.remote_shell import run_remote_command
+from modules.system.services import (
+    list_failed_services,
+    restart_service,
+    service_status,
+    start_service,
+    stop_service,
+)
+from modules.system.shell import shell
+from modules.system.system_info import get_system_info
+from modules.system.windows import list_windows
+from modules.tools.tool_registry import registry
+
 
 async def speak(text: str):
     await tts.speak(text)

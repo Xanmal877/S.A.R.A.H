@@ -1,4 +1,7 @@
-from modules.soul.identity_state.identity_state import get_identity_state, active_character_id
+from modules.soul.identity_state.identity_state import (
+    active_character_id,
+    get_identity_state,
+)
 
 
 def _identity():

@@ -1,6 +1,7 @@
-import requests
 import asyncio
 import logging
+
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("LLMClient")
@@ -81,9 +82,9 @@ class LLMClient:
         except requests.exceptions.ConnectionError:
             return "Error: Failed to connect to the LLM server."
         except requests.exceptions.RequestException as e:
-            return f"Error: HTTP request failed: {str(e)}"
+            return f"Error: HTTP request failed: {e!s}"
         except Exception as e:
-            return f"Error: An unexpected error occurred: {str(e)}"
+            return f"Error: An unexpected error occurred: {e!s}"
 
     async def generate_response(self, prompt: str, system_prompt: str = "You are a helpful AI assistant.") -> str:
         """
@@ -111,9 +112,9 @@ class LLMClient:
         except requests.exceptions.ConnectionError:
             return "Error: Failed to connect to the local vision model."
         except requests.exceptions.RequestException as e:
-            return f"Error: HTTP request failed: {str(e)}"
+            return f"Error: HTTP request failed: {e!s}"
         except Exception as e:
-            return f"Error: An unexpected error occurred: {str(e)}"
+            return f"Error: An unexpected error occurred: {e!s}"
 
     async def describe_image(self, image_b64: str, prompt: str) -> str:
         """

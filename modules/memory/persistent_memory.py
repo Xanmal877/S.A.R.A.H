@@ -1,5 +1,7 @@
 import os
+
 from modules.memory.json_file_store import JsonFileStore
+
 
 class PersistentMemory(JsonFileStore):
     """

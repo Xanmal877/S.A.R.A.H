@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Dict, List
+
 
 class PerceptionType(Enum):
     ALLIES = auto()
@@ -9,7 +9,7 @@ class PerceptionType(Enum):
 
 class DetectionModule:
     def __init__(self):
-        self.perception_dict: Dict[PerceptionType, List] = {
+        self.perception_dict: dict[PerceptionType, list] = {
             PerceptionType.ALLIES: [],
             PerceptionType.ENEMIES: [],
             PerceptionType.OBJECTS: [],
@@ -17,19 +17,19 @@ class DetectionModule:
         }
 
     @property
-    def allies(self) -> List:
+    def allies(self) -> list:
         return self.perception_dict.get(PerceptionType.ALLIES, [])
 
     @property
-    def enemies(self) -> List:
+    def enemies(self) -> list:
         return self.perception_dict.get(PerceptionType.ENEMIES, [])
 
     @property
-    def objects(self) -> List:
+    def objects(self) -> list:
         return self.perception_dict.get(PerceptionType.OBJECTS, [])
 
     @property
-    def interactables(self) -> List:
+    def interactables(self) -> list:
         return self.perception_dict.get(PerceptionType.INTERACTABLES, [])
 
     def add_ally(self, soul_data):

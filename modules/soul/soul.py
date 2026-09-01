@@ -1,5 +1,6 @@
 from enum import Enum, auto
-from typing import Any, Dict
+from typing import Any
+
 
 class ResourceEnum(Enum):
     NONE = auto()
@@ -77,7 +78,7 @@ class SoulEnum(Enum):
 
 class SoulData:
     def __init__(self):
-        self.soulModuleDicts: Dict[SoulModulesEnum, Dict] = {
+        self.soulModuleDicts: dict[SoulModulesEnum, dict] = {
             SoulModulesEnum.SOUL_DATA: {},
             SoulModulesEnum.PARTY: {},
             SoulModulesEnum.SOCIAL_STATE: {},
@@ -87,7 +88,7 @@ class SoulData:
             SoulModulesEnum.EXPLORATION: {},
         }
         
-        self.soulDataDict: Dict[SoulEnum, Any] = {
+        self.soulDataDict: dict[SoulEnum, Any] = {
             SoulEnum.UID: -1,
             SoulEnum.NAME: "",
             SoulEnum.DESCRIPTION: "",
@@ -174,13 +175,13 @@ class Soul:
         self.character_id = character_id
         self.soul_data = SoulData()
         # Modules (Equivalent to the GD setup)
-        from .mental_state.mental_state import MentalState
-        from .social_state.social_state import SocialState
-        from .life_skills.life_skills import LifeSkills
-        from .exploration_module import ExplorationModule
-        from .party_module import PartyModule
         from .detection_module import DetectionModule
+        from .exploration_module import ExplorationModule
         from .identity_state.identity_state import get_identity_state
+        from .life_skills.life_skills import LifeSkills
+        from .mental_state.mental_state import MentalState
+        from .party_module import PartyModule
+        from .social_state.social_state import SocialState
 
         self.mental_state = MentalState()
         self.social_state = SocialState()

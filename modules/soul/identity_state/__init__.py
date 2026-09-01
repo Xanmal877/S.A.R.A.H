@@ -1,3 +1,8 @@
-from .identity_state import IdentityState, identity_state, get_identity_state, active_character_id
+from .identity_state import (
+    IdentityState,
+    active_character_id,
+    get_identity_state,
+    identity_state,
+)
 
-__all__ = ["IdentityState", "identity_state", "get_identity_state", "active_character_id"]
+__all__ = ["IdentityState", "active_character_id", "get_identity_state", "identity_state"]

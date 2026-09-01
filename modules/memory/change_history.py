@@ -1,6 +1,8 @@
 import os
 from datetime import datetime
+
 from modules.memory.json_file_store import JsonFileStore
+
 
 class ChangeHistory(JsonFileStore):
     """

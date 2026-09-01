@@ -10,12 +10,12 @@ import logging
 import sys
 
 from agents.sarah import SarahAgent
-from modules.tools.tool_orchestrator import ToolOrchestrator
-from modules.tools.init_tools import register_all_tools
-from modules.llmClient import LLMClient
-from modules.audio.tts import tts
-from modules.audio.wake_word import WakeWordListener, DEFAULT_WAKE_WORD
 from modules.audio.stt import SpeechToText
+from modules.audio.tts import tts
+from modules.audio.wake_word import DEFAULT_WAKE_WORD, WakeWordListener
+from modules.llmClient import LLMClient
+from modules.tools.init_tools import register_all_tools
+from modules.tools.tool_orchestrator import ToolOrchestrator
 
 logging.basicConfig(level=logging.INFO)
 

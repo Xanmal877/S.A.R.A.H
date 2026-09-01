@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Dict
+
 
 class PartiesEnum(Enum):
     LEADER = auto()
@@ -18,13 +18,13 @@ class XpModeEnum(Enum):
 
 class PartyModule:
     current_global_party_id: int = -1
-    parties: Dict[int, Dict] = {}
+    parties: dict[int, dict] = {}
 
     def __init__(self, owner_soul=None):
         self.soul = owner_soul
         self.party_id = -1
-        self.current_party: Dict = {}
-        self.party_loot_turns: Dict[int, int] = {}
+        self.current_party: dict = {}
+        self.party_loot_turns: dict[int, int] = {}
         self.party_being_created: bool = False
 
     def startup(self):
@@ -98,7 +98,7 @@ class PartyModule:
         if self.party_id in self.party_loot_turns:
             del self.party_loot_turns[self.party_id]
 
-    def find_party(self, party_id: int) -> Dict:
+    def find_party(self, party_id: int) -> dict:
         return PartyModule.parties.get(party_id, {})
 
     def get_next_party_id(self) -> int:

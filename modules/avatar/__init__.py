@@ -1,3 +1,9 @@
-from .avatar_bridge import AvatarBridge, register_bridge, get_bridge, AVATAR_PORTS, DEFAULT_PORT
+from .avatar_bridge import (
+    AVATAR_PORTS,
+    DEFAULT_PORT,
+    AvatarBridge,
+    get_bridge,
+    register_bridge,
+)
 
-__all__ = ["AvatarBridge", "register_bridge", "get_bridge", "AVATAR_PORTS", "DEFAULT_PORT"]
+__all__ = ["AVATAR_PORTS", "DEFAULT_PORT", "AvatarBridge", "get_bridge", "register_bridge"]

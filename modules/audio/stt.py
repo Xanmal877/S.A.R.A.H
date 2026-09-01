@@ -5,7 +5,7 @@ import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
 
-from modules.audio.audio_config import SAMPLE_RATE, CHUNK
+from modules.audio.audio_config import CHUNK, SAMPLE_RATE
 
 logger = logging.getLogger("STT")
 

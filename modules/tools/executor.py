@@ -1,5 +1,6 @@
-import logging
 import asyncio
+import logging
+
 from modules.tools.tool_registry import registry
 
 logger = logging.getLogger("ToolExecutor")
@@ -32,7 +33,7 @@ class ToolExecutor:
             return result
         except Exception as e:
             logger.exception(f"Error executing tool {tool_name}: {e}")
-            return f"Error executing {tool_name}: {str(e)}"
+            return f"Error executing {tool_name}: {e!s}"
 
 # Global executor instance (will be linked to agent later)
 executor = ToolExecutor()
