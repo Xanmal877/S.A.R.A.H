@@ -1,6 +1,6 @@
-import subprocess
-import shutil
 import logging
+import shutil
+import subprocess
 
 logger = logging.getLogger("Media")
 

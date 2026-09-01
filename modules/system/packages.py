@@ -1,5 +1,6 @@
 from modules.system.shell import shell
 
+
 class PackageManager:
     """
     Handles package management for the system.
@@ -9,19 +10,19 @@ class PackageManager:
         self.mgr = "pacman"
 
     def install(self, package_name: str):
-        return shell.run_command(f"{self.mgr} -S --noconfirm {package_name}", use_sudo=True)
+        return shell.run_argv([self.mgr, "-S", "--noconfirm", *package_name.split()], use_sudo=True)
 
     def remove(self, package_name: str):
-        return shell.run_command(f"{self.mgr} -Rs --noconfirm {package_name}", use_sudo=True)
+        return shell.run_argv([self.mgr, "-Rs", "--noconfirm", *package_name.split()], use_sudo=True)
 
     def search(self, query: str):
-        return shell.run_command(f"{self.mgr} -Ss {query}")
+        return shell.run_argv([self.mgr, "-Ss", *query.split()])
 
     def update_system(self):
-        return shell.run_command(f"{self.mgr} -Syu --noconfirm", use_sudo=True)
+        return shell.run_argv([self.mgr, "-Syu", "--noconfirm"], use_sudo=True)
 
     def list_installed(self):
-        return shell.run_command(f"{self.mgr} -Q")
+        return shell.run_argv([self.mgr, "-Q"])
 
 pkg_manager = PackageManager()
 

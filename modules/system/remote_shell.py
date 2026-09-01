@@ -37,4 +37,4 @@ async def run_remote_command(host: str, command: str, use_sudo: bool = False) ->
     except asyncio.TimeoutError:
         return f"Error: SSH command to {host} timed out."
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: {e!s}"

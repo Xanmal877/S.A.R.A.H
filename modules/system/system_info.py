@@ -1,5 +1,7 @@
 import platform
+
 import psutil
+
 
 class SystemInfo:
     """

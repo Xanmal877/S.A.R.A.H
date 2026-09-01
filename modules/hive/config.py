@@ -2,10 +2,13 @@ import json
 import os
 import secrets
 import socket
+import subprocess
 
 SARAH_HOME = os.path.expanduser("~/.sarah")
 CONFIG_PATH = os.path.join(SARAH_HOME, "hive_config.json")
 SECRET_PATH = os.path.join(SARAH_HOME, "hive_secret")
+TLS_CERT_PATH = os.path.join(SARAH_HOME, "hive_cert.pem")
+TLS_KEY_PATH = os.path.join(SARAH_HOME, "hive_key.pem")
 
 DEFAULT_CONFIG = {
     "role": "peer",       # "peer" (default: serves read-only info to others) or
@@ -64,3 +67,35 @@ def init_secret(force: bool = False) -> str:
         f.write(key)
     os.chmod(SECRET_PATH, 0o600)
     return key
+
+
+def has_tls_cert() -> bool:
+    return os.path.exists(TLS_CERT_PATH) and os.path.exists(TLS_KEY_PATH)
+
+
+def init_tls_cert(force: bool = False) -> None:
+    """
+    Generates a single self-signed cert/key pair, shared by every hive node
+    the same way the HMAC secret is: never transmitted over the network,
+    copied out-of-band (scp/USB) to every machine joining the hive. Every
+    node uses the *same* cert+key to both serve (present the cert) and
+    verify (trust exactly that cert, nothing else) hive TLS connections -
+    this mirrors the existing pre-shared-secret trust model rather than
+    introducing per-node PKI/CA management.
+    """
+    os.makedirs(SARAH_HOME, exist_ok=True)
+    if has_tls_cert() and not force:
+        raise FileExistsError(
+            f"{TLS_CERT_PATH} / {TLS_KEY_PATH} already exist. Pass force=True to overwrite."
+        )
+    subprocess.run(
+        [
+            "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+            "-keyout", TLS_KEY_PATH, "-out", TLS_CERT_PATH,
+            "-days", "3650", "-subj", "/CN=sarah-hive",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    os.chmod(TLS_KEY_PATH, 0o600)
+    os.chmod(TLS_CERT_PATH, 0o644)

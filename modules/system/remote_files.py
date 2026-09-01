@@ -1,6 +1,6 @@
 import asyncio
-import os
 import logging
+import os
 
 from modules.hive.peer_registry import peer_registry
 

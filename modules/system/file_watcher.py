@@ -1,7 +1,7 @@
-import os
-import json
 import hashlib
+import json
 import logging
+import os
 
 logger = logging.getLogger("FileWatcher")
 

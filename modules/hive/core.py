@@ -3,8 +3,9 @@ import logging
 import time
 
 from .config import load_secret
-from .protocol import encode_message, decode_message
 from .peer_registry import peer_registry
+from .protocol import decode_message, encode_message
+from .tls import client_context
 
 logger = logging.getLogger("HiveCore")
 
@@ -50,7 +51,12 @@ class HiveCore:
                 logger.warning(f"Failed to poll hive peer '{name}': {e}")
 
     async def _query(self, host: str, port: int, msg_type: str, data: dict = None) -> dict:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=5)
+        ssl_ctx = client_context()
+        if not ssl_ctx:
+            raise RuntimeError("No hive TLS cert provisioned - cannot query peers.")
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port, ssl=ssl_ctx), timeout=5
+        )
         try:
             writer.write(encode_message(self.secret, msg_type, data))
             await writer.drain()

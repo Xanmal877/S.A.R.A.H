@@ -1,4 +1,5 @@
 import logging
+
 from modules.system.shell import shell
 
 logger = logging.getLogger("SystemService")
@@ -8,25 +9,25 @@ class ServiceManager:
     Manages systemd services.
     """
     def status(self, service_name: str):
-        return shell.run_command(f"systemctl status {service_name}")
+        return shell.run_argv(["systemctl", "status", *service_name.split()])
 
     def start(self, service_name: str):
-        return shell.run_command(f"systemctl start {service_name}", use_sudo=True)
+        return shell.run_argv(["systemctl", "start", *service_name.split()], use_sudo=True)
 
     def stop(self, service_name: str):
-        return shell.run_command(f"systemctl stop {service_name}", use_sudo=True)
+        return shell.run_argv(["systemctl", "stop", *service_name.split()], use_sudo=True)
 
     def restart(self, service_name: str):
-        return shell.run_command(f"systemctl restart {service_name}", use_sudo=True)
+        return shell.run_argv(["systemctl", "restart", *service_name.split()], use_sudo=True)
 
     def enable(self, service_name: str):
-        return shell.run_command(f"systemctl enable {service_name}", use_sudo=True)
+        return shell.run_argv(["systemctl", "enable", *service_name.split()], use_sudo=True)
 
     def disable(self, service_name: str):
-        return shell.run_command(f"systemctl disable {service_name}", use_sudo=True)
+        return shell.run_argv(["systemctl", "disable", *service_name.split()], use_sudo=True)
 
     def list_failed(self):
-        return shell.run_command("systemctl --failed")
+        return shell.run_argv(["systemctl", "--failed"])
 
 service_manager = ServiceManager()
 

@@ -7,6 +7,13 @@ Usage:
         exact file to every other machine you want in the same hive
         (scp/USB/etc.) - it is never transmitted over the network itself.
 
+    python3 sarah_hive_setup.py init-tls-cert [--force]
+        Generates ~/.sarah/hive_cert.pem and ~/.sarah/hive_key.pem (chmod
+        600). Copy BOTH files to every other machine in the hive the same
+        way as the secret (scp/USB/etc.) - every node uses this same
+        cert+key pair to encrypt hive traffic. Required for HiveServer to
+        start at all; without it, nodes fail closed (no plaintext fallback).
+
     python3 sarah_hive_setup.py show-config
         Prints the current ~/.sarah/hive_config.json (or the defaults that
         would be used if it doesn't exist yet). Edit that file directly to
@@ -16,7 +23,15 @@ Usage:
 import json
 import sys
 
-from modules.hive.config import init_secret, load_config, CONFIG_PATH, SECRET_PATH
+from modules.hive.config import (
+    CONFIG_PATH,
+    SECRET_PATH,
+    TLS_CERT_PATH,
+    TLS_KEY_PATH,
+    init_secret,
+    init_tls_cert,
+    load_config,
+)
 
 
 def main():
@@ -31,6 +46,11 @@ def main():
         print(f"Hive secret written to {SECRET_PATH} (chmod 600).")
         print("Copy this file to every other machine joining the hive:")
         print(key)
+    elif cmd == "init-tls-cert":
+        force = "--force" in sys.argv
+        init_tls_cert(force=force)
+        print(f"Hive TLS cert/key written to {TLS_CERT_PATH} and {TLS_KEY_PATH} (chmod 644/600).")
+        print("Copy BOTH files to every other machine joining the hive.")
     elif cmd == "show-config":
         print(f"(from {CONFIG_PATH} if present, else defaults)")
         print(json.dumps(load_config(), indent=2))

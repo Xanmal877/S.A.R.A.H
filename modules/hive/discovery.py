@@ -1,11 +1,15 @@
 import asyncio
 import logging
 import socket
+import ssl
 
 from zeroconf import ServiceStateChange
-from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser, AsyncServiceInfo
+from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
+from .config import load_secret
 from .peer_registry import peer_registry
+from .protocol import ProtocolError, decode_message, encode_message
+from .tls import client_context
 
 logger = logging.getLogger("HiveDiscovery")
 
@@ -41,6 +45,7 @@ class HiveDiscovery:
         self.aiozc = None
         self.browser = None
         self.service_info = None
+        self.secret = load_secret()
 
     async def start(self):
         self.aiozc = AsyncZeroconf()
@@ -72,11 +77,45 @@ class HiveDiscovery:
                 host = socket.inet_ntoa(info.addresses[0])
                 props = info.properties or {}
                 peer_name = props.get(b"node", name.encode()).decode()
+                if not await self._verify_peer(host, info.port):
+                    logger.warning(
+                        f"Ignoring mDNS announcement for '{peer_name}' at {host}:{info.port} - "
+                        "failed authenticated ping (not a real hive peer, or missing/mismatched secret)"
+                    )
+                    return
                 peer_registry.update(peer_name, host, info.port)
                 logger.info(f"Discovered hive peer '{peer_name}' at {host}:{info.port}")
         elif state_change == ServiceStateChange.Removed:
             peer_name = name[: -len("." + SERVICE_TYPE)] if name.endswith(SERVICE_TYPE) else name
             peer_registry.remove(peer_name)
+
+    async def _verify_peer(self, host: str, port: int) -> bool:
+        """Proves the announcer actually holds the shared hive secret before
+        it's added to peer_registry - mDNS itself is unauthenticated, so
+        without this any device on the LAN could announce as a hive node
+        and land in the trust boundary modules/system/remote_shell.py reads
+        for its SSH-target allowlist."""
+        if not self.secret:
+            return False
+        ssl_ctx = client_context()
+        if not ssl_ctx:
+            return False
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port, ssl=ssl_ctx), timeout=3
+            )
+        except (OSError, asyncio.TimeoutError, ssl.SSLError):
+            return False
+        try:
+            writer.write(encode_message(self.secret, "ping"))
+            await writer.drain()
+            raw = await asyncio.wait_for(reader.readline(), timeout=3)
+            envelope = decode_message(self.secret, raw)
+            return envelope.get("data", {}).get("status") == "ok"
+        except (ProtocolError, asyncio.TimeoutError, OSError, ssl.SSLError):
+            return False
+        finally:
+            writer.close()
 
     async def stop(self):
         if self.browser:

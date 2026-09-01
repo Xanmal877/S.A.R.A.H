@@ -1,9 +1,11 @@
 import asyncio
 import logging
 
-from .config import load_secret
-from .protocol import encode_message, decode_message, ProtocolError
 from modules.system.system_info import get_system_info
+
+from .config import load_secret
+from .protocol import ProtocolError, decode_message, encode_message
+from .tls import server_context
 
 logger = logging.getLogger("HiveServer")
 
@@ -37,8 +39,17 @@ class HiveServer:
                 "HiveServer NOT starting. Run init_secret() to provision one."
             )
             return
-        self._server = await asyncio.start_server(self._handle_client, "0.0.0.0", self.port)
-        logger.info(f"Hive server listening on 0.0.0.0:{self.port}")
+        ssl_ctx = server_context()
+        if not ssl_ctx:
+            logger.warning(
+                "No hive TLS cert provisioned (~/.sarah/hive_cert.pem) - "
+                "HiveServer NOT starting. Run init_tls_cert() to provision one."
+            )
+            return
+        self._server = await asyncio.start_server(
+            self._handle_client, "0.0.0.0", self.port, ssl=ssl_ctx
+        )
+        logger.info(f"Hive server listening on 0.0.0.0:{self.port} (TLS)")
 
     async def _handle_client(self, reader, writer):
         try:
