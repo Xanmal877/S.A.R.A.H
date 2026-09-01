@@ -95,9 +95,9 @@ load_dotenv()
 # Sarah's own daemon uses, rather than talking to Ollama directly with no
 # identity/tools at all.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from modules.llmClient import LLMClient  # noqa: E402
-from modules.tools.tool_orchestrator import ToolOrchestrator  # noqa: E402
-from modules.tools import init_tools  # noqa: E402,F401 - populates the tool registry on import
+from modules.llmClient import LLMClient
+from modules.tools import init_tools  # noqa: F401 - populates the tool registry on import
+from modules.tools.tool_orchestrator import ToolOrchestrator
 
 # Explicit allowlist for Discord - this bot is reachable by anyone in the
 # server, not just a trusted local operator, so it gets the same treatment

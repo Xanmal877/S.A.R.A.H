@@ -10,7 +10,7 @@ from discord.ext import commands, tasks
 from discord.ui import Button
 
 from . import rpg_logic
-from .util import MONSTERS_PATH, PLAYERS_PATH, SHOP_PATH, load_json, save_json
+from .util import MONSTERS_PATH, PLAYERS_PATH, SHOP_PATH, load_json, load_json_list, save_json
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +24,24 @@ DEFAULT_USER = {
     "max_stamina": 100,
     "mana": 100,
     "max_mana": 100,
+    "hunger": 100,
+    "max_hunger": 100,
+    "thirst": 100,
+    "max_thirst": 100,
     "attack": 10,
     "defense": 5,
     "experience": 0,
     "gold": 0,
-    "inventory": {},
+    "inventory": [],
     "cooldowns": {},
     "skills": [],
     "defeated": False,
+    "x": 0,
+    "y": 0,
+    "factions": {"NEUTRAL": 0},
+    "active_quests": [],
+    "quest_progress": {},
+    "equipped": {},
 }
 
 
@@ -111,8 +121,13 @@ class RPGView(OwnerOnlyView):
         if not user["inventory"]:
             embed.description = "Your inventory is empty!"
         else:
-            for item, qty in user["inventory"].items():
-                embed.add_field(name=item.capitalize(), value=f"Quantity: {qty}", inline=True)
+            for entry in user["inventory"]:
+                name = entry["name"]
+                label = name.capitalize() if entry.get("type") != "equipment" else name
+                value = f"Quantity: {entry.get('qty', 1)}"
+                if entry.get("type") == "equipment":
+                    value = f"Slot: {entry.get('slot', '?')} | Bonus: {entry.get('bonus', {})}"
+                embed.add_field(name=label, value=value, inline=True)
         await interaction.response.edit_message(content="🎒 Inventory", embed=embed, view=self)
 
     @discord.ui.button(label="Stats", style=discord.ButtonStyle.secondary)
@@ -313,9 +328,11 @@ class ShopView(OwnerOnlyView):
         self.embed = discord.Embed(title="🛒 RPG Shop", color=0x2B2D31)
         self.embed.set_footer(text=f"Your Gold: {user['gold']} 💰")
         for item in self.cog.shop_data.get("items", []):
+            price = self.cog.get_shop_price(user, item["price"])
+            price_label = f"~~{item['price']}g~~ {price}g (THE_CROWN discount)" if price != item["price"] else f"{price}g"
             self.embed.add_field(
                 name=f"{item['name'].capitalize()} ({item['stock']} left)",
-                value=f"Price: {item['price']}g\nType: {item['type']}",
+                value=f"Price: {price_label}\nType: {item['type']}",
                 inline=True,
             )
 
@@ -331,12 +348,13 @@ class ShopView(OwnerOnlyView):
             await interaction.response.send_message("❌ This item is out of stock!", ephemeral=True)
             return
 
-        if user["gold"] < item_data["price"]:
+        price = self.cog.get_shop_price(user, item_data["price"])
+        if user["gold"] < price:
             await interaction.response.send_message("❌ You don't have enough gold!", ephemeral=True)
             return
 
-        user["gold"] -= item_data["price"]
-        user["inventory"][item_data["name"]] = user["inventory"].get(item_data["name"], 0) + 1
+        user["gold"] -= price
+        self.cog.add_to_inventory(user, item_data["name"])
         self.cog.shop_data["items"][item_idx]["stock"] -= 1
 
         save_json(PLAYERS_PATH, self.cog.user_data)
@@ -345,7 +363,7 @@ class ShopView(OwnerOnlyView):
         shop_view = ShopView(self.cog, self.user_id)
         await shop_view.create_embed()
         await interaction.response.edit_message(
-            content=f"✅ Successfully bought {item_data['name']} for {item_data['price']}g!",
+            content=f"✅ Successfully bought {item_data['name']} for {price}g!",
             embed=shop_view.embed,
             view=shop_view,
         )
@@ -356,7 +374,7 @@ class RPG(commands.Cog):
         self.client = client
         self.user_data: dict = load_json(PLAYERS_PATH)
         self.shop_data: dict = load_json(SHOP_PATH)
-        self.monsters: dict = load_json(MONSTERS_PATH)
+        self.monsters: list = load_json_list(MONSTERS_PATH)
         self.regen_task = None
         self.restock_task = None
 
@@ -417,17 +435,79 @@ class RPG(commands.Cog):
         for key, default in DEFAULT_USER.items():
             if key not in user:
                 user[key] = default
-        if not isinstance(user.get("inventory"), dict):
-            user["inventory"] = {}
+        if not isinstance(user.get("inventory"), list):
+            user["inventory"] = []
         if not isinstance(user.get("cooldowns"), dict):
             user["cooldowns"] = {}
         if not isinstance(user.get("skills"), list):
             user["skills"] = []
+        if not isinstance(user.get("active_quests"), list):
+            user["active_quests"] = []
+        if not isinstance(user.get("quest_progress"), dict):
+            user["quest_progress"] = {}
         user["health"] = min(user["health"], user["max_health"])
         user["stamina"] = min(user["stamina"], user["max_stamina"])
         user["mana"] = min(user["mana"], user["max_mana"])
+        user["hunger"] = min(user.get("hunger", 100), user.get("max_hunger", 100))
+        user["thirst"] = min(user.get("thirst", 100), user.get("max_thirst", 100))
         user["defeated"] = bool(user.get("defeated"))
         return user
+
+    def add_to_inventory(self, user: dict, name: str, qty: int = 1, **extra) -> None:
+        """Add a stackable item, or a procedural equipment item, to inventory.
+
+        Stackable items (no `extra`) merge with an existing entry of the same
+        name; equipment items (with `extra` fields like slot/bonus) are always
+        appended as their own entry since each roll can be unique.
+        """
+        if not extra:
+            for entry in user["inventory"]:
+                if entry["name"] == name and entry.get("type") != "equipment":
+                    entry["qty"] = entry.get("qty", 1) + qty
+                    return
+            user["inventory"].append({"name": name, "qty": qty})
+        else:
+            entry = {"name": name, "qty": qty}
+            entry.update(extra)
+            user["inventory"].append(entry)
+
+    def remove_from_inventory(self, user: dict, name: str, qty: int = 1) -> bool:
+        """Remove qty of a stackable item by name. Returns False if not enough held."""
+        for entry in user["inventory"]:
+            if entry["name"] == name and entry.get("type") != "equipment":
+                if entry.get("qty", 1) < qty:
+                    return False
+                entry["qty"] -= qty
+                if entry["qty"] <= 0:
+                    user["inventory"].remove(entry)
+                return True
+        return False
+
+    def get_inventory_qty(self, user: dict, name: str) -> int:
+        for entry in user["inventory"]:
+            if entry["name"] == name and entry.get("type") != "equipment":
+                return entry.get("qty", 1)
+        return 0
+
+    def apply_faction_bonuses(self, user: dict, biome: str, world_data: dict) -> dict:
+        """Applies the per-faction bonuses described by get_factions():
+        WILD_WALKERS get a higher monster encounter rate in Forests,
+        SHADOW_GUILD get a higher loot rate in Swamps. Mutates and returns
+        world_data (a fresh per-call dict from get_world_location, safe to
+        mutate)."""
+        factions = user.get("factions", {})
+        if biome == "Forest" and factions.get("WILD_WALKERS", 0) > 0:
+            world_data["monster_rate"] = min(1.0, world_data["monster_rate"] * 1.5)
+        if biome == "Swamp" and factions.get("SHADOW_GUILD", 0) > 0:
+            world_data["loot_rate"] = min(1.0, world_data["loot_rate"] * 1.5)
+        return world_data
+
+    def get_shop_price(self, user: dict, base_price: int) -> int:
+        """THE_CROWN's described "Discount in Town shops" bonus - 10% off
+        for any member with rep in that faction."""
+        if user.get("factions", {}).get("THE_CROWN", 0) > 0:
+            return max(1, round(base_price * 0.9))
+        return base_price
 
     async def cog_load(self):
         """Start the regeneration and restock tasks when cog loads."""
@@ -461,7 +541,8 @@ class RPG(commands.Cog):
         await self.client.wait_until_ready()
 
     async def regen_resources(self):
-        """Regenerate 10 stamina/mana per minute; defeated players heal 5 HP/min."""
+        """Regenerate 10 stamina/mana per minute; defeated players heal 5 HP/min.
+        Also handles hunger and thirst decay."""
         await self.client.wait_until_ready()
         while not self.client.is_closed():
             try:
@@ -470,6 +551,17 @@ class RPG(commands.Cog):
                     user = self.get_user(user_id)
                     user["stamina"] = min(user["max_stamina"], user["stamina"] + 10)
                     user["mana"] = min(user["max_mana"], user["mana"] + 10)
+
+                    # Hunger/Thirst decay (per minute)
+                    user["hunger"] = max(0, user["hunger"] - 1)
+                    user["thirst"] = max(0, user["thirst"] - 2)
+
+                    # Starvation penalty
+                    if user["hunger"] <= 0 or user["thirst"] <= 0:
+                        user["health"] = max(0, user["health"] - 2)
+                        if user["health"] <= 0:
+                            user["defeated"] = True
+
                     if user.get("defeated"):
                         user["health"] = min(user["max_health"], user["health"] + 5)
                         if user["health"] > 0:
@@ -531,7 +623,7 @@ class RPG(commands.Cog):
             response = f"💰 You found {gold_found} gold!"
         elif outcome == "item":
             item = random.choice(list(self.items.keys()))
-            user["inventory"][item] = user["inventory"].get(item, 0) + 1
+            self.add_to_inventory(user, item)
             response = f"🎁 You found a {item}!"
         elif outcome == "monster":
             if not self.monsters:
@@ -568,7 +660,10 @@ class RPG(commands.Cog):
             if not skill_data:
                 return (f"❌ Skill {skill_name} not found!", [])
 
-            cost_map = rpg_logic.SKILL_COSTS.get(skill_name, {})
+            cost_map = dict(rpg_logic.SKILL_COSTS.get(skill_name, {}))
+            if user.get("factions", {}).get("ARCANE_ORDER", 0) > 0 and "mana" in cost_map:
+                # ARCANE_ORDER's described "Faster Magic training" bonus - 20% cheaper mana costs.
+                cost_map["mana"] = max(1, round(cost_map["mana"] * 0.8))
             for resource, cost in cost_map.items():
                 if user.get(resource, 0) < cost:
                     return (f"❌ Not enough {resource} to use {skill_name}!", [])
@@ -597,6 +692,18 @@ class RPG(commands.Cog):
             user["experience"] += exp_gain
             user["gold"] += gold_gain
             response = f"⚔️ You defeated the {monster['name']}!\n🏆 Gained {exp_gain} XP and {gold_gain} gold!"
+            kill_biome, _ = self.get_world_location(user["x"], user["y"])
+            self.advance_quest_progress(user, "kill", kill_biome)
+            if random.random() < 0.2:
+                dropped_item = self.generate_random_item(monster["name"])
+                self.add_to_inventory(
+                    user,
+                    dropped_item["name"],
+                    type=dropped_item["type"],
+                    slot=dropped_item["slot"],
+                    bonus=dropped_item["bonus"],
+                )
+                response += f"\n✨ It dropped **{dropped_item['name']}**!"
             del user["current_monster"]
             user["cooldowns"]["battle"] = datetime.datetime.now().timestamp()
 
@@ -688,6 +795,288 @@ class RPG(commands.Cog):
             view=battle_view,
         )
 
+    def get_world_location(self, x, y):
+        biomes = {
+            "Forest": {"monster_rate": 0.3, "loot_rate": 0.1},
+            "Desert": {"monster_rate": 0.2, "loot_rate": 0.05},
+            "Mountains": {"monster_rate": 0.4, "loot_rate": 0.15},
+            "Swamp": {"monster_rate": 0.5, "loot_rate": 0.1},
+            "Plains": {"monster_rate": 0.1, "loot_rate": 0.05},
+            "Town": {"monster_rate": 0.0, "loot_rate": 0.0}
+        }
+        if x == 0 and y == 0:
+            return "Town", biomes["Town"]
+        # A local Random instance keeps a given tile's biome deterministic
+        # without disturbing the global random state used by combat rolls.
+        tile_rng = random.Random(f"{x}_{y}")
+        biome_name = tile_rng.choice(list(biomes.keys()))
+        if biome_name == "Town" and tile_rng.random() > 0.05:
+            biome_name = "Plains"
+        return biome_name, biomes[biome_name]
+
+    async def handle_move(self, interaction: discord.Interaction, dx, dy):
+        user_id = str(interaction.user.id)
+        user = self.get_user(user_id)
+        if user["stamina"] < 5:
+            await interaction.response.send_message("You're too exhausted to move! Use a potion or wait for regen.", ephemeral=True)
+            return
+        user["x"] += dx
+        user["y"] += dy
+        user["stamina"] -= 5
+        biome, world_data = self.get_world_location(user["x"], user["y"])
+        world_data = self.apply_faction_bonuses(user, biome, world_data)
+        msg = f"🚶 You moved to **({user['x']}, {user['y']})**. You are now in the **{biome}**."
+        self.advance_quest_progress(user, "move", biome)
+        roll = random.random()
+        if roll < world_data["monster_rate"]:
+            # In S.A.R.A.H's current logic, we set 'current_monster' in the user object
+            if not self.monsters:
+                await interaction.response.send_message(msg + "\n❌ No monsters in this world!", ephemeral=True)
+                return
+            monster = copy.deepcopy(random.choice(self.monsters))
+            user["current_monster"] = monster
+            msg += f"\n🐉 You encountered a **{monster['name']}**! Use the RPG menu to fight!"
+        elif roll < world_data["monster_rate"] + world_data["loot_rate"]:
+            loot_gold = random.randint(5, 50)
+            user["gold"] += loot_gold
+            msg += f"\n💰 You found a discarded pouch with **{loot_gold} gold**!"
+        save_json(PLAYERS_PATH, self.user_data)
+        await interaction.response.send_message(msg, ephemeral=True)
+
+    @app_commands.command(name="north", description="Move North in the RPG world")
+    async def move_north(self, interaction: discord.Interaction):
+        await self.handle_move(interaction, 0, 1)
+
+    @app_commands.command(name="south", description="Move South in the RPG world")
+    async def move_south(self, interaction: discord.Interaction):
+        await self.handle_move(interaction, 0, -1)
+
+    @app_commands.command(name="east", description="Move East in the RPG world")
+    async def move_east(self, interaction: discord.Interaction):
+        await self.handle_move(interaction, 1, 0)
+
+    @app_commands.command(name="west", description="Move West in the RPG world")
+    async def move_west(self, interaction: discord.Interaction):
+        await self.handle_move(interaction, -1, 0)
+
+    @app_commands.command(name="where", description="Check your RPG location")
+    async def where(self, interaction: discord.Interaction):
+        user = self.get_user(str(interaction.user.id))
+        biome, _ = self.get_world_location(user["x"], user["y"])
+        await interaction.response.send_message(f"📍 You are at **({user['x']}, {user['y']})** in the **{biome}**.", ephemeral=True)
+
+    def get_factions(self):
+        return {
+            "THE_CROWN": {"description": "The ruling monarchy of the realm.", "bonus": "Discount in Town shops"},
+            "SHADOW_GUILD": {"description": "A secret network of thieves and assassins.", "bonus": "Higher loot rate in Swamps"},
+            "ARCANE_ORDER": {"description": "Masters of the mystic arts.", "bonus": "Faster Magic training"},
+            "WILD_WALKERS": {"description": "Protectors of the natural world.", "bonus": "Higher monster rate in Forests"}
+        }
+
+    @app_commands.command(name="factions", description="List all available factions and your standing")
+    async def factions(self, interaction: discord.Interaction):
+        user = self.get_user(str(interaction.user.id))
+        f_db = self.get_factions()
+
+        res = "**Available Factions:**\n"
+        for f, info in f_db.items():
+            rep = user["factions"].get(f, 0)
+            res += f"**{f}**: {info['description']} | Your Rep: {rep}\n"
+
+        await interaction.response.send_message(res, ephemeral=True)
+
+    @app_commands.command(name="join", description="Join a faction")
+    async def join_faction(self, interaction: discord.Interaction, faction: str):
+        faction = faction.upper()
+        f_db = self.get_factions()
+
+        if faction not in f_db:
+            await interaction.response.send_message("That faction does not exist!", ephemeral=True)
+            return
+
+        user = self.get_user(str(interaction.user.id))
+        user["factions"][faction] = 10 # Starting rep
+        save_json(PLAYERS_PATH, self.user_data)
+        await interaction.response.send_message(f"🤝 You have joined **{faction}**!", ephemeral=True)
+
+    def get_available_quests(self, user):
+        x, y = user["x"], user["y"]
+        biome, _ = self.get_world_location(x, y)
+
+        quests = []
+        if biome == "Town":
+            quests.append({
+                "id": "q1", "title": "Town Cleanup", "desc": "Move 5 times in the town",
+                "reward": {"gold": 50, "xp": 20},
+                "objective": {"type": "move", "biome": "Town", "count": 5},
+            })
+            quests.append({
+                "id": "q2", "title": "Merchant Guard", "desc": "Hunt 1 monster",
+                "reward": {"gold": 100, "xp": 50},
+                "objective": {"type": "kill", "biome": None, "count": 1},
+            })
+        elif biome == "Forest":
+            quests.append({
+                "id": "q3", "title": "Wolf Hunt", "desc": "Defeat a monster in the forest",
+                "reward": {"gold": 80, "xp": 60},
+                "objective": {"type": "kill", "biome": "Forest", "count": 1},
+            })
+
+        return quests
+
+    @app_commands.command(name="quests", description="View available quests in your current location")
+    async def quests(self, interaction: discord.Interaction):
+        user = self.get_user(str(interaction.user.id))
+        available = self.get_available_quests(user)
+
+        if not available:
+            await interaction.response.send_message("No quests available here.", ephemeral=True)
+            return
+
+        res = "**Available Quests:**\n"
+        for q in available:
+            res += f"**{q['title']}**: {q['desc']} | Reward: {q['reward']}\n"
+
+        await interaction.response.send_message(res, ephemeral=True)
+
+    @app_commands.command(name="accept", description="Accept a quest by title")
+    async def accept_quest(self, interaction: discord.Interaction, quest_title: str):
+        user = self.get_user(str(interaction.user.id))
+        available = self.get_available_quests(user)
+
+        found = None
+        for q in available:
+            if q["title"].lower() == quest_title.lower():
+                found = q
+                break
+
+        if not found:
+            await interaction.response.send_message("Quest not found!", ephemeral=True)
+            return
+
+        if any(q["id"] == found["id"] for q in user["active_quests"]):
+            await interaction.response.send_message(f"You already have **{found['title']}** active!", ephemeral=True)
+            return
+
+        user["active_quests"].append(found)
+        user["quest_progress"][found["id"]] = 0
+        save_json(PLAYERS_PATH, self.user_data)
+        await interaction.response.send_message(f"📜 Accepted **{found['title']}**! ({found['desc']})", ephemeral=True)
+
+    def advance_quest_progress(self, user, obj_type, biome):
+        """Increments progress on any active quest whose objective matches
+        obj_type/biome ('kill'/'move' events call this from wherever those
+        actions actually happen - process_attack, handle_move)."""
+        for quest in user["active_quests"]:
+            objective = quest.get("objective")
+            if not objective or objective["type"] != obj_type:
+                continue
+            if objective["biome"] is not None and objective["biome"] != biome:
+                continue
+            user["quest_progress"][quest["id"]] = user["quest_progress"].get(quest["id"], 0) + 1
+
+    @app_commands.command(name="turnin", description="Turn in a completed quest by title")
+    async def turnin_quest(self, interaction: discord.Interaction, quest_title: str):
+        user = self.get_user(str(interaction.user.id))
+
+        found = None
+        for q in user["active_quests"]:
+            if q["title"].lower() == quest_title.lower():
+                found = q
+                break
+
+        if not found:
+            await interaction.response.send_message("You don't have that quest active!", ephemeral=True)
+            return
+
+        objective = found.get("objective", {})
+        progress = user["quest_progress"].get(found["id"], 0)
+        required = objective.get("count", 0)
+        if progress < required:
+            await interaction.response.send_message(
+                f"📜 **{found['title']}** isn't done yet ({progress}/{required}).", ephemeral=True
+            )
+            return
+
+        reward = found.get("reward", {})
+        gold = reward.get("gold", 0)
+        xp = reward.get("xp", 0)
+        user["gold"] += gold
+        user["experience"] += xp
+
+        user["active_quests"] = [q for q in user["active_quests"] if q["id"] != found["id"]]
+        user["quest_progress"].pop(found["id"], None)
+
+        response = f"✅ Turned in **{found['title']}**! Gained {gold} gold and {xp} XP."
+        while user["experience"] >= rpg_logic.xp_to_next_level(user["level"]):
+            user["level"] += 1
+            rpg_logic.apply_level_up(user)
+            response += f"\n🎉 Level up! You're now level {user['level']}!"
+
+        save_json(PLAYERS_PATH, self.user_data)
+        await interaction.response.send_message(response, ephemeral=True)
+
+    def generate_random_item(self, monster_name):
+        prefixes = {
+            "Common": 1.0,
+            "Sharp": 1.2,
+            "Dull": 0.8,
+            "Ancient": 1.5,
+            "Cursed": 0.5,
+            "Blessed": 1.4,
+            "Masterwork": 2.0,
+            "Rusted": 0.6
+        }
+        if "Slime" in monster_name:
+            base_item, skill = "Slime Sword", "BRAWLING"
+        elif "Goblin" in monster_name:
+            base_item, skill = "Goblin Dagger", "PIERCING"
+        elif "Skeleton" in monster_name:
+            base_item, skill = "Bone Shield", "DEFENCE"
+        elif "Orc" in monster_name:
+            base_item, skill = "Orcish Axe", "BRAWLING"
+        else:
+            base_item, skill = "Mystic Artifact", "MEDITATION"
+
+        prefix = random.choices(list(prefixes.keys()), weights=[40, 15, 15, 10, 5, 5, 5, 5])[0]
+        mult = prefixes[prefix]
+        bonus_val = int(5 * mult)
+
+        return {
+            "name": f"{prefix} {base_item}",
+            "type": "equipment",
+            "slot": "weapon" if any(x in base_item for x in ["Sword", "Dagger", "Axe"]) else "offhand" if "Shield" in base_item else "body",
+            "bonus": {skill: bonus_val}
+        }
+
+    @app_commands.command(name="equip", description="Equip a piece of gear from your inventory")
+    async def equip(self, interaction: discord.Interaction, item_name: str):
+        user = self.get_user(str(interaction.user.id))
+        inv = user["inventory"]
+
+        found_item = next(
+            (entry for entry in inv if entry.get("type") == "equipment" and entry["name"].lower() == item_name.lower()),
+            None,
+        )
+        if not found_item:
+            await interaction.response.send_message(
+                f"❌ You don't have any equippable gear named '{item_name}'!", ephemeral=True
+            )
+            return
+
+        slot = found_item.get("slot", "misc")
+        inv.remove(found_item)
+        previous = user["equipped"].get(slot)
+        if previous:
+            inv.append(previous)
+        user["equipped"][slot] = found_item
+
+        save_json(PLAYERS_PATH, self.user_data)
+        response = f"🛠️ Equipped **{found_item['name']}** in the {slot} slot!"
+        if previous:
+            response += f"\n(Unequipped **{previous['name']}**, moved back to inventory.)"
+        await interaction.response.send_message(response, ephemeral=True)
+
     @app_commands.command(name="stats", description="Check your character stats")
     @app_commands.guild_only()
     async def stats(self, interaction: discord.Interaction):
@@ -697,6 +1086,8 @@ class RPG(commands.Cog):
         embed.add_field(name="Health", value=f"{user['health']}/{user['max_health']}", inline=True)
         embed.add_field(name="Stamina", value=f"{user['stamina']}/{user['max_stamina']}", inline=True)
         embed.add_field(name="Mana", value=f"{user['mana']}/{user['max_mana']}", inline=True)
+        embed.add_field(name="Hunger", value=f"{user['hunger']}/{user['max_hunger']}", inline=True)
+        embed.add_field(name="Thirst", value=f"{user['thirst']}/{user['max_thirst']}", inline=True)
         embed.add_field(name="Attack", value=user["attack"], inline=True)
         embed.add_field(name="Defense", value=user["defense"], inline=True)
         embed.add_field(
@@ -707,6 +1098,26 @@ class RPG(commands.Cog):
         embed.add_field(name="Gold", value=user["gold"], inline=True)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="leaderboard", description="See the top RPG players")
+    @app_commands.guild_only()
+    async def leaderboard(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="🏆 RPG Leaderboard", color=0x00FF00)
+
+        ranked = sorted(
+            self.user_data.items(),
+            key=lambda item: (item[1].get("level", 1), item[1].get("experience", 0)),
+            reverse=True,
+        )[:10]
+
+        lines = []
+        for idx, (user_id, user) in enumerate(ranked, 1):
+            member = interaction.guild.get_member(int(user_id))
+            name = member.mention if member else "Unknown User"
+            lines.append(f"{idx}. {name} — Level {user.get('level', 1)}, {user.get('gold', 0)} gold")
+
+        embed.description = "\n".join(lines) if lines else "No adventurers yet — use `/register` to start!"
+        await interaction.response.send_message(embed=embed)
+
     @app_commands.command(name="use", description="Use an item from your inventory")
     @app_commands.guild_only()
     async def use(self, interaction: discord.Interaction, item: str):
@@ -714,7 +1125,7 @@ class RPG(commands.Cog):
         user = self.get_user(user_id)
         item = item.lower()
 
-        if user["inventory"].get(item, 0) <= 0:
+        if self.get_inventory_qty(user, item) <= 0:
             await interaction.response.send_message(f"You don't have any {item}!", ephemeral=True)
             return
 
@@ -741,9 +1152,7 @@ class RPG(commands.Cog):
             await interaction.response.send_message("❌ That item can't be used!", ephemeral=True)
             return
 
-        user["inventory"][item] -= 1
-        if user["inventory"][item] == 0:
-            del user["inventory"][item]
+        self.remove_from_inventory(user, item)
 
         save_json(PLAYERS_PATH, self.user_data)
         await interaction.response.send_message(response, ephemeral=True)
