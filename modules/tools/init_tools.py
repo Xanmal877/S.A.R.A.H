@@ -42,6 +42,12 @@ from modules.memory.person_profile_tools import (
     set_person_preference,
     upsert_person_profile,
 )
+from modules.soul.action_proposals.action_proposal_tools import (
+    approve_action,
+    list_pending_actions,
+    propose_action,
+    reject_action,
+)
 from modules.memory.semantic_tools import (
     add_semantic_fact,
     consolidate_episode,
@@ -185,6 +191,19 @@ def register_all_tools():
     registry.register("set_person_preference", set_person_preference, "Records/updates a specific person's preference (keyed). Args: person_id (str), pref_key (str), value (str), source (str, optional), confidence (float, optional).")
     registry.register("set_person_consent_boundary", set_person_consent_boundary, "Records/updates a specific person's consent boundary. Args: person_id (str), boundary_key (str), value (str), source (str, optional), confidence (float, optional).")
     registry.register("add_person_relationship_note", add_person_relationship_note, "Adds a sourced relationship note to a specific person's profile. Args: person_id (str), note (str), source (str, optional), confidence (float, optional).")
+
+    # Persistent action proposals + operator approval (trusted-local only, NOT
+    # exposed to Discord - see discord/main.py DISCORD_ALLOWED_TOOLS). The
+    # autonomous runtime is observe/suggest only; non-observe operations that the
+    # policy categorizes as approval-required must carry an operator-approved,
+    # current-character, exact-match, single-use proposal before the orchestrator
+    # will execute them. These tools let that proposal surface and be approved.
+    # Caller identity is application-bound: with active_person_id set, a proposal
+    # is scoped to that caller and can never be bound to a different person.
+    registry.register("propose_action", propose_action, "Proposes a non-observe action for operator approval; returns a stable proposal id. The action runs only after approval with exact matching tool+args. Args: tool (str), args (str, optional JSON), rationale (str, optional), evidence (str, optional), goal_id (str, optional), person_id (str, optional; scoped to the bound caller), risk_category (str, optional), ttl_seconds (int, optional).")
+    registry.register("list_pending_actions", list_pending_actions, "Lists this character's action proposals awaiting operator approval (read-only, bounded, no raw args shown). Args: limit (int, optional).")
+    registry.register("approve_action", approve_action, "Operator approves a proposed action so it may execute once with exact matching args. Args: proposal_id (str), decision (str, optional).")
+    registry.register("reject_action", reject_action, "Operator rejects a proposed action (terminal; cannot execute). Args: proposal_id (str), decision (str, optional).")
 
     # Browser tools (Playwright/Firefox, dedicated profile - see modules/browser/)
     registry.register("browser_navigate", browser.navigate, "Navigates Sarah's own browser to a URL. Args: url (str).")

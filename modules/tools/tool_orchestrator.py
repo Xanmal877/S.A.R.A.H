@@ -2,6 +2,8 @@ import json
 import logging
 import os
 
+from modules.soul.action_proposals.action_proposals import get_risk_category
+from modules.soul.action_proposals.action_proposals import _active_store as _proposal_active_store
 from modules.soul.identity_state.identity_state import active_character_id
 from modules.tools.executor import executor
 from modules.tools.tool_registry import registry
@@ -125,6 +127,18 @@ class ToolOrchestrator:
                     f"evidence you actually inspected (logs, config, system state), not a guess. Discard bad theories "
                     f"quickly and say so.\n"
                     f"4. BE SAFE: Ask before destructive or irreversible actions.\n\n"
+                    f"APPROVAL RULE: Read-only/observe tools and ordinary "
+                    f"non-destructive tools are allowed directly. High-risk or "
+                    f"destructive operations (shell, packages, services, "
+                    f"containers, git mutation, remote shell/files, browser "
+                    f"mutation, media control, clipboard write, and "
+                    f"identity/memory/profile/fact/goal writes) require an "
+                    f"operator-approved action proposal. To run one you MUST "
+                    f"first call propose_action to obtain a proposal id, wait for "
+                    f"operator approval (approve_action), then call the tool "
+                    f"again INCLUDING the 'proposal_id' argument with the exact "
+                    f"same args you proposed. Without an approved matching "
+                    f"proposal the action is refused.\n\n"
                     f"To use a tool, respond ONLY with a JSON object:\n"
                     f'{{"tool": "tool_name", "args": {{"arg_name": "value"}}}}'
                     f"\nWhen you have the final answer or have completed the task, respond with:\n"
@@ -179,8 +193,14 @@ class ToolOrchestrator:
                         else:
                             result = f"Error: tool '{tool_name}' is not permitted in this context."
                     else:
-                        logger.info(f"Calling tool {tool_name} with {args}")
-                        result = await executor.execute(tool_name, **args)
+                        # Non-observe path. Read-only observes run normally.
+                        # Approval-required (high-risk/destructive) tools need an
+                        # operator-approved, current-character, unexpired, exact-
+                        # match proposal unless one is supplied; otherwise the
+                        # action is refused with a clear message. Ordinary non-
+                        # destructive tools keep running without a proposal.
+                        proposal_id = args.pop("proposal_id", None)
+                        result = await self._execute_gated(tool_name, args, proposal_id)
                     
                     # Append tool result to conversation
                     messages.append({"role": "assistant", "content": response_text})
@@ -200,3 +220,55 @@ class ToolOrchestrator:
         for msg in messages:
             prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
         return prompt
+
+    async def _execute_gated(self, tool_name, args, proposal_id):
+        """Execution path honoring the code-enforced approval policy.
+
+        - read-only/observe tools: always run (no proposal needed).
+        - ordinary non-destructive interactive tools: run (no proposal needed).
+        - approval-required (high-risk/destructive) tools: run ONLY when a
+          valid current-character, approved, unexpired, exact-match proposal id
+          is supplied, and the proposal is consumed atomically (single-use).
+          Otherwise refuse with a clear approval-required message. The tool
+          is never executed without that gate.
+
+        This is the *non-observe* gate. Autonomous observe-only operates under
+        a stricter policy handled separately above (blocked disallowed/observe
+        tools are refused outright regardless of any proposal).
+        """
+        risk = get_risk_category(tool_name)
+        if risk == "approval_required":
+            if not proposal_id:
+                return self._approval_required_message(tool_name)
+            store = _proposal_active_store()
+            consumed = store.validate_and_consume(proposal_id, tool_name, args)
+            if "error" in consumed:
+                return consumed["error"]
+            # Approved + exact match + atomically consumed: authorized to run
+            # exactly this one time. The proposal is already single-use; whether
+            # the run succeeds or fails it must NEVER run again from this id.
+            try:
+                result = await executor.execute(tool_name, **args)
+            except Exception as e:  # noqa: BLE001 - report any executor failure
+                logger.exception("Executor raised for approved proposal %s", proposal_id)
+                err = f"Error executing {tool_name}: {e!s}"
+                # Bound the failure note to what we persist (never the raw
+                # arbitrary args), transition proposed->failed so the consumed
+                # single-use approval is not left dangling as 'executed'.
+                store.record_outcome(proposal_id, err[:4000], success=False)
+                return err
+            success = not (isinstance(result, str) and result.startswith("Error"))
+            store.record_outcome(proposal_id, result, success=success)
+            return result
+
+        # read-only / ordinary interactive non-destructive tools:
+        # no proposal required - preserve normal behavior.
+        return await executor.execute(tool_name, **args)
+
+    def _approval_required_message(self, tool_name: str) -> str:
+        return (
+            f"Action '{tool_name}' requires operator approval and was not "
+            f"executed. This operation is classified as approval-required. "
+            f"Propose it (propose_action) and, once the operator approves, "
+            f"resubmit with the approved proposal id."
+        )

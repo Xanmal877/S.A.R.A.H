@@ -112,17 +112,18 @@ class AutonomousToolBlockingTests(unittest.TestCase):
 
     def test_no_allowlist_and_no_observe_only_is_unrestricted(self):
         # The normal interactive/desktop path: neither restriction set, so the
-        # effective allowlist is None (full registry) and a tool runs.
-        _register_sentinel("run_command", self.calls)
+        # effective allowlist is None (full registry) and an ordinary (non
+        # approval-required) tool runs without a proposal id.
+        _register_sentinel("send_notification", self.calls)
         llm = _StubLLM(_mk_decisions(
-            {"tool": "run_command", "args": {"command": "ls"}},
+            {"tool": "send_notification", "args": {"title": "hi"}},
             {"final_answer": "ok"},
         ))
         orch = ToolOrchestrator(llm, character_id="sarah")
         self.assertIsNone(orch._effective_allowlist)
         result = self._run(orch)
         self.assertEqual(result, "ok")
-        self.assertIn("run_command", self.calls)
+        self.assertIn("send_notification", self.calls)
 
 
 if __name__ == "__main__":
