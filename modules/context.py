@@ -218,8 +218,34 @@ def assemble_autonomous_context(agent, screen_text: str = None, hive_summary: st
                                 body_state: str = None) -> str:
     """Context for the autonomous observe-and-suggest loop: the character's
     identity, mental state, current goal, and available perception. This is
-    what the state machine folds into the system context for its request."""
+    what the state machine folds into the system context for its request.
+
+    Unlike assemble_character_context (used for conversational/Discord/CLI
+    context), the autonomous path additionally surfaces the character's most
+    recent bounded reflection-log entries as [RECENT EXPERIENCES]. The journal
+    is system-written only (no tool, no Discord exposure); this is a read-only
+    rendering helper fed ONLY here - never into conversational context. It is
+    bounded (at most a handful of newest entries, no raw ids/args) and, being a
+    flat forward snapshot never written back, cannot recursively re-ingest its
+    own output. The section is omitted entirely when the journal is empty."""
     active_character_id.set(getattr(agent, "character_id", "sarah"))
-    return assemble_character_context(
+    base = assemble_character_context(
         agent, screen_text=screen_text, hive_summary=hive_summary, body_state=body_state
     )
+
+    # Bounded recent-experience recall: the newest journal entries (prior
+    # autonomous reflection / action outcomes) for this character. Bounded to a
+    # fixed small number, emits only bounded content (no raw ids/args), and is
+    # omitted when there is nothing stored.
+    try:
+        from modules.soul.reflection_log.reflection_log import recent_experiences_summary
+        experiences = recent_experiences_summary()
+        if experiences:
+            base += (
+                "\n[RECENT EXPERIENCES] (bounded, system-written reflection "
+                "journal; prior autonomous reflection or action outcomes)\n"
+                + experiences
+            )
+    except Exception:  # noqa: BLE001 - recall must never break context assembly
+        pass
+    return base

@@ -19,6 +19,7 @@ from modules.soul.identity_state.identity_state import active_character_id  # no
 from .reflection_log import (  # noqa: F401
     ENTRY_AUTONOMOUS,
     ENTRY_OUTCOME,
+    RECENT_EXPERIENCE_LIMIT,
     REFLECTION_LOG_CAP,
     REFLECTION_LOG_VERSION,
     SOURCE_AUTONOMOUS_LOOP,
@@ -27,4 +28,5 @@ from .reflection_log import (  # noqa: F401
     _active_store,
     _clear_reflection_log_store_cache,
     get_reflection_log_store,
+    recent_experiences_summary,
 )

@@ -46,6 +46,7 @@ executor success flag + goal state (see outcome_interpreter.py).
 import json
 import logging
 import os
+import re
 import threading
 import uuid
 from datetime import datetime
@@ -220,3 +221,56 @@ def _active_store() -> "ReflectionLogStore":
 def _clear_reflection_log_store_cache():
     """Drop cached store instances (tests only)."""
     _reflection_stores.clear()
+
+
+# ── bounded rendering / query helper (autonomous recall) ───────────────
+# A read-only rendering helper for the *autonomous* reasoning context. It is
+# NOT a tool, is NOT registered in modules/tools/init_tools.py, and is NOT
+# exposed to Discord - it is called only from modules/context
+# (assemble_autonomous_context), so it remains read-only system plumbing just
+# like the rest of the journal. It emits ONLY the bounded `content` field of the
+# newest entries plus their kind, never raw person ids / goal ids / proposal
+# ids / action args, and is bounded to RECENT_EXPERIENCE_LIMIT entries.
+RECENT_EXPERIENCE_LIMIT = 5
+_INTERNAL_REFERENCE_PATTERN = re.compile(r"\b(?:goal|proposal)-[0-9a-f]+\b", re.IGNORECASE)
+
+
+def recent_experiences_summary(character_id: str = None, *,
+                               limit: int = RECENT_EXPERIENCE_LIMIT) -> str:
+    """Render the most recent reflection-log entries for a character as a
+    bounded context snippet for autonomous reasoning.
+
+    Selects only the newest `limit` entries (default / hard max
+    RECENT_EXPERIENCE_LIMIT = 5) from the given character's journal, labels each
+    as either prior autonomous reflection or an action outcome, and renders
+    ONLY the bounded `content` field - never raw person ids, goal ids, proposal
+    ids, or action args. Returns "" when there are no journal entries so the
+    caller can omit the entire section.
+
+    Output is bounded by construction: at most `limit` entries, each with
+    already-bounded content (see ReflectionLogStore.append), so the returned
+    string cannot grow without limit. It is a flat, read-only snapshot fed
+    forward into the reasoning prompt; it is never written back to the journal,
+    so it cannot recursively add journal text to itself.
+    """
+    cid = character_id or active_character_id.get()
+    try:
+        limit = max(1, min(int(limit), RECENT_EXPERIENCE_LIMIT))
+    except (TypeError, ValueError):
+        limit = RECENT_EXPERIENCE_LIMIT
+    try:
+        entries = get_reflection_log_store(cid).list(limit=limit)
+    except Exception:  # noqa: BLE001 - recall must never break context assembly
+        return ""
+    lines = []
+    for e in entries:
+        kind = e.get("kind")
+        label = "Action outcome" if kind == ENTRY_OUTCOME else "Autonomous reflection"
+        content = (e.get("content") or "").strip()
+        if not content:
+            continue
+        # Autonomous text can echo a selected-goal/proposal handle from its
+        # prompt. Keep those internal IDs out of subsequent model context.
+        content = _INTERNAL_REFERENCE_PATTERN.sub("[internal reference]", content)
+        lines.append(f"- [{label}] {content}")
+    return "\n".join(lines)

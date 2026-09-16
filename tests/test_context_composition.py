@@ -110,6 +110,121 @@ class ContextCompositionTests(unittest.TestCase):
         self.assertNotIn("cats", sarah_ctx)
 
 
+class RecentExperiencesRecallTests(unittest.TestCase):
+    """Bounded recent-experience recall surfaced only in the autonomous context
+    ([RECENT EXPERIENCES]) from the system-written reflection journal.
+
+    Covers: character isolation, hard bound (max 5), empty omission,
+    autonomous-only inclusion (absent from conversational context), and no raw
+    proposal args / ids leaking into the rendered snippet."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Direct imports that don't need the agent machinery.
+        from modules.soul.reflection_log.reflection_log import (
+            ENTRY_AUTONOMOUS,
+            ENTRY_OUTCOME,
+            RECENT_EXPERIENCE_LIMIT,
+            _clear_reflection_log_store_cache,
+            get_reflection_log_store,
+        )
+        cls.ENTRY_AUTONOMOUS = ENTRY_AUTONOMOUS
+        cls.ENTRY_OUTCOME = ENTRY_OUTCOME
+        cls.LIMIT = RECENT_EXPERIENCE_LIMIT
+        cls._get = staticmethod(get_reflection_log_store)
+        cls._clear = staticmethod(_clear_reflection_log_store_cache)
+
+    def setUp(self):
+        import os
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self._old = os.environ.get("SARAH_STATE_DIR")
+        os.environ["SARAH_STATE_DIR"] = self._tmp.name
+        self._clear()
+        active_character_id.set("sarah")
+
+    def tearDown(self):
+        import os
+        self._clear()
+        if self._old is None:
+            os.environ.pop("SARAH_STATE_DIR", None)
+        else:
+            os.environ["SARAH_STATE_DIR"] = self._old
+        self._tmp.cleanup()
+
+    def _append(self, kind: str, content: str, character="sarah", **kw):
+        return self._get(character).append(kind=kind, content=content, **kw)
+
+    def _ctx(self, agent=None):
+        if agent is not None:
+            return assemble_autonomous_context(agent)
+        # Conversational path (Discord bot / CLI) - must NOT include the section.
+        return assemble_character_context(agent=None)
+
+    def test_recent_experiences_are_bounded_to_five(self):
+        for i in range(20):
+            self._append(self.ENTRY_AUTONOMOUS, f"reflection-{i}")
+        agent = _FakeAgent()
+        ctx = self._ctx(agent)
+        self.assertIn("[RECENT EXPERIENCES]", ctx)
+        # The five newest entries appear; older ones beyond the bound never do.
+        for e in ("reflection-15", "reflection-16", "reflection-17",
+                  "reflection-18", "reflection-19"):
+            self.assertIn(e, ctx)
+        self.assertNotIn("reflection-14", ctx)
+        self.assertNotIn("reflection-0", ctx)
+
+    def test_empty_journal_omits_section(self):
+        ctx = self._ctx(_FakeAgent())
+        self.assertNotIn("[RECENT EXPERIENCES]", ctx)
+
+    def test_characters_are_isolated(self):
+        self._append(self.ENTRY_AUTONOMOUS, "sarah private reflection")
+        self._append(self.ENTRY_AUTONOMOUS, "tama private reflection", character="tama")
+        # Sarah's context shows only her own journal.
+        ctx = self._ctx(_FakeAgent())
+        self.assertIn("sarah private reflection", ctx)
+        self.assertNotIn("tama private reflection", ctx)
+
+    def test_only_autonomous_context_includes_section(self):
+        self._append(self.ENTRY_AUTONOMOUS, "only-here reflection")
+        # Autonomous loop context includes the section.
+        auto_ctx = assemble_autonomous_context(_FakeAgent())
+        self.assertIn("[RECENT EXPERIENCES]", auto_ctx)
+        self.assertIn("only-here reflection", auto_ctx)
+        # Conversational (Discord/CLI) context must NOT include it.
+        conv_ctx = assemble_character_context(agent=None)
+        self.assertNotIn("[RECENT EXPERIENCES]", conv_ctx)
+        self.assertNotIn("only-here reflection", conv_ctx)
+
+    def test_no_raw_proposal_args_or_ids_leak(self):
+        # An outcome entry carries bounded reason content plus a proposal id.
+        self._append(
+            self.ENTRY_OUTCOME,
+            "Proposed action 'run_command' failed (proposal status: failed).",
+            proposal_id="proposal-abc123", goal_id="goal-xyz", outcome="failure",
+        )
+        ctx = self._ctx(_FakeAgent())
+        self.assertIn("[RECENT EXPERIENCES]", ctx)
+        # The bounded reason is present and labelled as an action outcome.
+        self.assertIn("Action outcome", ctx)
+        self.assertIn("failed", ctx)
+        # Raw ids / args never leak into the rendered snippet.
+        self.assertNotIn("proposal-abc123", ctx)
+        self.assertNotIn("goal-xyz", ctx)
+        self.assertNotIn("echo ok", ctx)
+
+    def test_reflection_echoed_internal_handles_are_masked(self):
+        self._append(
+            self.ENTRY_AUTONOMOUS,
+            "Continue goal-deadbeef after proposal-cafebabe succeeds.",
+        )
+        ctx = self._ctx(_FakeAgent())
+        self.assertNotIn("goal-deadbeef", ctx)
+        self.assertNotIn("proposal-cafebabe", ctx)
+        self.assertIn("[internal reference]", ctx)
+
+
 def assemble_assertable(agent):
     """Small wrapper so tests read clearly: with an agent use the autonomous
     path; without one set the contextvar and use the plain path."""
