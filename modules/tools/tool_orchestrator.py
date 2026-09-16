@@ -17,7 +17,7 @@ class ToolOrchestrator:
     4. Loop until a final answer is provided.
     """
     def __init__(self, llm_client, agent=None, character_id: str = None, character_name: str = None,
-                 allowed_tools: set = None):
+                 allowed_tools: set = None, observe_only: bool = False):
         self.llm_client = llm_client
         self.agent = agent
         # Explicit character_id/character_name let a caller with no full
@@ -36,11 +36,46 @@ class ToolOrchestrator:
         # hive peers, here: any Discord user typing a trigger word) never
         # gets the full ungated registry, which includes run_command.
         self.allowed_tools = allowed_tools
+        # observe_only is the autonomous-loop policy (requirement: unattended
+        # autonomy is observe-and-suggest only). When set, the effective
+        # allowlist is the intersection of allowed_tools (if any) with the
+        # minimal read-only/observe set below. Anything else - even a tool
+        # that made it past a *non-observe* allowlist - is refused with a
+        # clear "approval required" message. This is code-enforced, not
+        # prompt-enforced: it cannot be disabled by anything the model says.
+        self.observe_only = observe_only
+        self._OBSERVE_ALLOWLIST = {
+            "get_recent_logs", "get_recent_changes", "get_identity_summary",
+            "get_system_info", "service_status", "list_failed_services",
+            "list_containers", "list_images", "container_logs",
+            "list_media_players", "media_status", "get_clipboard",
+            "list_windows", "git_status", "git_log", "git_diff",
+            "retrieve_memory", "get_opinion",
+        }
+        # The effective allowlist actually used for dispatch (see below).
+        self._effective_allowlist = self._compute_effective_allowlist()
+
+    def _compute_effective_allowlist(self):
+        """Effective tool allowlist after observing the observe-only policy.
+
+        None  -> full registry (no restriction; normal interactive behavior).
+        set   -> that set intersected with the observe allowlist when
+                 observe_only is set, otherwise the set as-is.
+
+        Interactive/trusted callers pass neither, so they are unaffected.
+        Discord's DISCORD_ALLOWED_TOOLS stays exactly as before.
+        """
+        if not self.observe_only:
+            return self.allowed_tools
+        observe = self._OBSERVE_ALLOWLIST
+        if self.allowed_tools is not None:
+            return self.allowed_tools & observe
+        return observe
 
     def _get_tool_definitions(self):
         tools = registry.list_tools()
-        if self.allowed_tools is not None:
-            tools = {name: desc for name, desc in tools.items() if name in self.allowed_tools}
+        if self._effective_allowlist is not None:
+            tools = {name: desc for name, desc in tools.items() if name in self._effective_allowlist}
         defs = "\n".join([f"- {name}: {desc}" for name, desc in tools.items()])
         return defs
 
@@ -128,9 +163,21 @@ class ToolOrchestrator:
                     tool_name = decision["tool"]
                     args = decision.get("args", {})
 
-                    if self.allowed_tools is not None and tool_name not in self.allowed_tools:
-                        logger.warning(f"Blocked disallowed tool call: {tool_name}")
-                        result = f"Error: tool '{tool_name}' is not permitted in this context."
+                    if self._effective_allowlist is not None and tool_name not in self._effective_allowlist:
+                        logger.warning("Blocked disallowed tool call: %s (context=%s)", tool_name,
+                                       "observe_only" if self.observe_only else "allowlist")
+                        if self.observe_only:
+                            # Autonomous loop policy: observe-and-suggest only.
+                            # Code-enforced - the agent cannot disable it via
+                            # its own output. Any write/act tool gets a clear
+                            # "approval required" message instead of running.
+                            result = (
+                                f"Action '{tool_name}' requires operator approval and was not "
+                                f"executed. As an observe-and-suggest autonomous loop you may "
+                                f"only use read-only/observe tools."
+                            )
+                        else:
+                            result = f"Error: tool '{tool_name}' is not permitted in this context."
                     else:
                         logger.info(f"Calling tool {tool_name} with {args}")
                         result = await executor.execute(tool_name, **args)

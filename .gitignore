@@ -1,6 +1,12 @@
 *.pyc
 /llama.cpp/
 /models/
+/.venv/
+bot.log
+bot-error.log
 
 # Local agent/session artifacts
 session-ses_*.md
+
+# Local agent instructions
+AGENTS.md

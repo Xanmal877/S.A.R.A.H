@@ -75,10 +75,17 @@ As the Hivemind concept matures, each machine, service, or robotic body a charac
 - Full browser automation (Playwright + Firefox, dedicated profile, stealth patches, network logging, accessibility-tree reading, tracing) — a real browser Sarah drives, not OS-level input automation.
 - Voice: wake-word detection → local speech-to-text → reasoning → local TTS, fully hands-free.
 
-### 🤖 Robotics & Android Control (future)
+### 🤖 Robotics & Android Control (opt-in foundation)
 
-- Operate and coordinate physical robotic or android bodies.
-- Centralize multi-device control under a unified AI consciousness.
+- Deterministic simulated body with obstacles, navigation, charging, sensors,
+  collision refusal, and action telemetry (`modules/robotics/`).
+- Acknowledgement-gated Arduino adapter with safe shutdown and mock transport.
+- Character-scoped runtime integration is disabled by default. Enable it in
+  `~/.sarah/hive_config.json` with `{"robotics": {"enabled": true, "mode": "sim"}}`;
+  use `"mode": "hardware"` with the configured serial `port` for an Arduino
+  implementing the line-based Anna-compatible command protocol.
+- The existing Godot avatar remains a visual body and is intentionally separate
+  from physical robot telemetry and actuator control.
 
 ### 💬 Communication & Social Integration
 
@@ -140,7 +147,8 @@ This project is private and not publicly licensed for distribution.
 - Tama's own canonical identity manifest (`agents/tama_identity.md`) and real Discord live-testing.
 - Full multi-machine hive command dispatch (a "core" node directing peers, not just polling them).
 - Dynamic multi-tasking and parallel agent coordination.
-- Robot control stack for future android integrations.
+- Expand the robotics contract to additional sensors, actuators, and android
+  body adapters.
 
 ---
 

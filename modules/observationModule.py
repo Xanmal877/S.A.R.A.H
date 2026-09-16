@@ -3,6 +3,21 @@ from datetime import datetime
 import psutil
 
 
+def _get_robotics_runtime():
+    """Resolve the character's robotics runtime, or None.
+
+    Imported lazily and guarded so a missing or broken robotics package
+    (e.g. hardware layer mid-edit, or pyserial absent) can never break the
+    core observation loop - the [BODY] section is simply omitted.
+    """
+    try:
+        from modules.robotics import get_runtime
+
+        return get_runtime
+    except Exception:  # noqa: BLE001 - robotics is optional
+        return None
+
+
 class ObservationModule:
     """
     Aggregates the current 'World State' for the LLM,
@@ -29,6 +44,11 @@ class ObservationModule:
         (modules/soul/identity_state/), included so the LLM reads what she
         already wants/thinks each cycle instead of only recalling it when it
         happens to call a memory tool. Pass None to omit [SARAH].
+
+        A [BODY] section is appended only when this character has a running,
+        enabled robotics runtime (modules/robotics/). When robotics is
+        disabled (the default) or no runtime exists, the section is omitted
+        entirely, so existing behavior is unchanged.
         """
         # System Metrics
         cpu_usage = psutil.cpu_percent()
@@ -68,4 +88,27 @@ class ObservationModule:
         if identity_summary is not None:
             world_state += f"\n\n[SARAH] (her own persistent opinions/interests/goals - not improvised)\n{identity_summary}"
 
+        body_state = self._body_state(agent)
+        if body_state is not None:
+            world_state += f"\n\n[BODY] (robotics telemetry)\n{body_state}"
+
         return world_state
+
+    def _body_state(self, agent) -> str | None:
+        """Return a formatted [BODY] section, or None when no runtime exists."""
+        get_runtime = _get_robotics_runtime()
+        if get_runtime is None:
+            return None
+        runtime = get_runtime(getattr(agent, "character_id", None))
+        if runtime is None or not runtime.enabled:
+            return None
+        state = runtime.state
+        if state is None:
+            return None
+        return (
+            f"Position: {state.position}\n"
+            f"Heading: {state.heading}\n"
+            f"Battery: {state.battery:.1f}%\n"
+            f"Charging: {state.is_charging}\n"
+            f"Docked: {state.docked}"
+        )

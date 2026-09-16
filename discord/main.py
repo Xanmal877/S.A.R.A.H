@@ -6,27 +6,35 @@ import subprocess
 import sys
 
 
-# ── Bootstrap: auto-install missing dependencies ──────────────────────
-def _ensure_deps():
-    """Check for required packages and pip-install anything missing."""
-    required = {
-        "discord": "discord.py",
-        "dotenv": "python-dotenv",
-        "ollama": "ollama",
-        "yt_dlp": "yt-dlp",
-        "pytz": "pytz",
-    }
-    missing = []
-    for module, package in required.items():
-        if importlib.util.find_spec(module) is None:
-            missing.append(package)
+# ── Bootstrap: keep Discord dependencies isolated from system Python ───
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VENV_DIR = os.path.join(REPO_DIR, ".venv")
+VENV_PYTHON = os.path.join(VENV_DIR, "bin", "python")
+REQUIREMENTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
 
-    if missing:
-        print(f"[Bootstrap] Missing packages: {missing}")
-        print("[Bootstrap] Installing...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
-        print("[Bootstrap] Done. Restarting with new packages...")
-        os.execv(sys.executable, [sys.executable, *sys.argv])
+
+def _ensure_deps():
+    """Install dependencies into the repo venv, never into system Python."""
+    required = ("discord", "dotenv", "ollama", "yt_dlp", "pytz")
+    missing = [module for module in required if importlib.util.find_spec(module) is None]
+    if not missing:
+        return
+
+    if os.path.abspath(sys.prefix) != os.path.abspath(VENV_DIR):
+        if not os.path.exists(VENV_PYTHON):
+            print(f"[Bootstrap] Creating isolated environment at {VENV_DIR}")
+            subprocess.check_call([sys.executable, "-m", "venv", VENV_DIR])
+        print(f"[Bootstrap] Installing Discord dependencies into {VENV_DIR}")
+        subprocess.check_call([VENV_PYTHON, "-m", "pip", "install", "-r", REQUIREMENTS_PATH])
+        print("[Bootstrap] Restarting with the isolated environment...")
+        os.execv(VENV_PYTHON, [VENV_PYTHON, *sys.argv])
+
+    raise RuntimeError(
+        "Discord dependencies are missing from the bot virtual environment: "
+        f"{', '.join(missing)}. "
+        f"Install them with: {VENV_PYTHON} -m pip install -r {REQUIREMENTS_PATH} "
+        f"(interpreter: {sys.executable})"
+    )
 
 
 _ensure_deps()
@@ -59,7 +67,7 @@ _setup_logging()
 
 # ── Interactive .env setup ────────────────────────────────────────────
 ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-if not os.path.exists(ENV_PATH):
+if not os.path.exists(ENV_PATH) and not os.getenv("BotToken"):
     print("\n=== First-time setup ===")
     print("Create a Discord bot at https://discord.com/developers/applications\n")
 
@@ -88,7 +96,7 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(ENV_PATH)
 
 # S.A.R.A.H's Python package root (this file lives at <repo>/discord/main.py) -
 # added so this bot can import the same soul/tool-orchestrator machinery
@@ -96,8 +104,50 @@ load_dotenv()
 # identity/tools at all.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from modules.llmClient import LLMClient
-from modules.tools import init_tools  # noqa: F401 - populates the tool registry on import
+from modules.avatar.avatar_tools import avatar_move_to, avatar_play, avatar_say
+from modules.memory.identity_tools import (
+    add_dislike,
+    add_goal,
+    add_interest,
+    add_relationship_note,
+    complete_goal,
+    form_opinion,
+    get_identity_summary,
+    get_opinion,
+)
+from modules.memory.memory_tools import retrieve_memory, store_memory
+from modules.context import assemble_character_context
+from modules.soul.identity_state.identity_state import active_character_id
 from modules.tools.tool_orchestrator import ToolOrchestrator
+from modules.tools.tool_registry import registry
+
+
+def _register_discord_tools():
+    """Register only the safe tools exposed to Discord.
+
+    Importing the full system registry also imports optional desktop, audio,
+    browser, and hive dependencies that Discord does not need.
+    """
+    tools = {
+        "form_opinion": form_opinion,
+        "get_opinion": get_opinion,
+        "add_interest": add_interest,
+        "add_dislike": add_dislike,
+        "add_relationship_note": add_relationship_note,
+        "add_goal": add_goal,
+        "complete_goal": complete_goal,
+        "get_identity_summary": get_identity_summary,
+        "avatar_move_to": avatar_move_to,
+        "avatar_say": avatar_say,
+        "avatar_play": avatar_play,
+        "store_memory": store_memory,
+        "retrieve_memory": retrieve_memory,
+    }
+    for name, function in tools.items():
+        registry.register(name, function, function.__doc__ or "")
+
+
+_register_discord_tools()
 
 # Explicit allowlist for Discord - this bot is reachable by anyone in the
 # server, not just a trusted local operator, so it gets the same treatment
@@ -218,7 +268,12 @@ async def GenerateResponse(message, personality_id: str, model_name: str):
             character_name=personality_id.capitalize(),
             allowed_tools=DISCORD_ALLOWED_TOOLS,
         )
-        return await orchestrator.process_request(message.content)
+        # Assemble the character's context (identity + mental/drive state +
+        # current goal + available perception) through the same reusable path
+        # the autonomous loop and CLI use, resolved for this personality_id.
+        active_character_id.set(personality_id)
+        system_context = assemble_character_context(agent=None)
+        return await orchestrator.process_request(message.content, system_context=system_context)
     except Exception:
         logger.exception("Error in GenerateResponse")
         return None
@@ -283,6 +338,8 @@ class EchoBot:
         self.chatChannel = chatChannel
         self.default_personality = default_personality
         self.current_personality = default_personality
+        self._activity_task = None
+        self.cog_manager = CogManager(self.client)
 
         self.client.event(self.on_ready)
         self.client.event(self.on_message)
@@ -327,8 +384,15 @@ class EchoBot:
                 return pid
         return self.current_personality
 
+    async def setup_hook(self):
+        """Load cogs and sync commands after Discord authentication is ready."""
+        await self.cog_manager.load_cogs()
+        synced = await self.client.tree.sync()
+        logger.info("Synced %d application commands", len(synced))
+
     async def on_ready(self):
-        self.client.loop.create_task(SetActivity(self.client))
+        if self._activity_task is None or self._activity_task.done():
+            self._activity_task = asyncio.create_task(SetActivity(self.client))
         logger.info("EchoBot logged in as %s", self.client.user)
         logger.info("Default personality: %s", self.default_personality)
 
@@ -413,11 +477,7 @@ async def main():
         default_personality = "tama"
 
     bot = EchoBot(token=token, chatChannel=chat_channel, default_personality=default_personality)
-    cog_manager = CogManager(bot.client)
-    await cog_manager.load_cogs()
-    await bot.client.tree.sync()
-
-    logger.info("EchoBot Online! Default personality: %s", default_personality)
+    logger.info("EchoBot starting. Default personality: %s", default_personality)
     await bot.client.start(bot.token)
 
 

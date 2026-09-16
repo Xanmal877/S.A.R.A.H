@@ -121,6 +121,35 @@ class BaseCharacter:
         # Just observability for now - no reaction logic invented here.
         print(f"[{self.characterName}] Avatar event: {name} {args}")
 
+    async def _start_robotics(self):
+        """
+        Starts this character's robotics runtime (modules/robotics/) if the
+        node's config opts in (~/.sarah/hive_config.json -> "robotics").
+        Disabled by default: when robotics is off this is a fast no-op and
+        existing behavior is unchanged. Mirrors _start_avatar_bridge: the
+        runtime is registered per character_id so tools and the observation
+        module can resolve "whose body" the same way avatar tools do.
+        """
+        try:
+            from modules.robotics import RoboticsRuntime, register_runtime
+        except Exception:  # noqa: BLE001 - robotics is optional
+            self.robotics_runtime = None
+            return
+        runtime = RoboticsRuntime(character_id=self.character_id)
+        try:
+            await runtime.start()
+        except Exception:
+            self.robotics_runtime = None
+            return
+        register_runtime(self.character_id, runtime)
+        self.robotics_runtime = runtime
+
+    async def _stop_robotics(self):
+        """Safe-stop and release this character's robotics runtime, if any."""
+        runtime = getattr(self, "robotics_runtime", None)
+        if runtime is not None:
+            await runtime.close()
+
     async def Run(self):
         """Main agent loop - equivalent to your _process function"""
         print(f"Starting {self.characterName} with personality: {self.personalityModule.get_debug_summary()}")
@@ -128,6 +157,7 @@ class BaseCharacter:
         await self._start_llm_server()
         await self._start_hive()
         await self._start_avatar_bridge()
+        await self._start_robotics()
 
         seconds_since_save = 0.0
         try:
@@ -139,6 +169,10 @@ class BaseCharacter:
                 # drives (modules/soul/mental_state/mental_state.py) alive so
                 # personality actually shifts internal state over time.
                 self.soul.mental_state.tick(0.1)
+
+                # Robotics body step (no-op when robotics is disabled).
+                if getattr(self, "robotics_runtime", None) is not None:
+                    await self.robotics_runtime.tick(0.1)
 
                 # State machine logic
                 await self.stateMachine.StateMachineLogic()
@@ -153,6 +187,7 @@ class BaseCharacter:
                 # Wait before next cycle
                 await asyncio.sleep(1.0)
         finally:
+            await self._stop_robotics()
             save_mental_state(self.soul.mental_state, self.character_id)
 
 async def StateMachineLogic(self):

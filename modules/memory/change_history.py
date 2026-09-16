@@ -1,15 +1,21 @@
 import os
 from datetime import datetime
 
-from modules.memory.json_file_store import JsonFileStore
+from modules.memory.json_file_store import JsonFileStore, state_dir
 
 
 class ChangeHistory(JsonFileStore):
     """
     Records every modification Sarah makes to the system.
     """
-    def __init__(self, history_path="~/.sarah/history.json"):
-        self.history_path = os.path.expanduser(history_path)
+
+    def __init__(self, history_path=None, character_id: str = "sarah"):
+        # Per-character history (~/.sarah/state/{character_id}/history.json)
+        # so each character keeps its own change log instead of a shared one.
+        self.history_path = history_path or os.path.join(
+            state_dir(character_id), "history.json"
+        )
+        self.history_path = os.path.expanduser(self.history_path)
         self._ensure_dir(self.history_path)
         self.logs = self._load(self.history_path, [])
 
@@ -30,5 +36,3 @@ class ChangeHistory(JsonFileStore):
 
     def get_recent(self, limit=10):
         return self.logs[-limit:]
-
-history = ChangeHistory()

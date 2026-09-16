@@ -172,9 +172,9 @@ Logs are written to `bot.log` (info and above) and `bot-error.log` (errors only)
 Install dev dependencies and run tests:
 
 ```bash
-pip install -r requirements-dev.txt
-pytest
-ruff check Cogs/ main.py
+python3 -m venv ../.venv
+../.venv/bin/python -m pip install -r requirements.txt
+../.venv/bin/python -m compileall -q .
 ```
 
 ## Notes

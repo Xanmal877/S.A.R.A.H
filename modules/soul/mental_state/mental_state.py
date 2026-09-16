@@ -247,3 +247,36 @@ class MentalState:
         self.drives.from_dict(saved.get("drives", {}))
         self.mbti.from_dict(saved.get("mbti", {}))
         self.enneagram.from_dict(saved.get("enneagram", {}))
+
+    def get_summary(self) -> str:
+        """A plain-text summary of the character's actual digital state -
+        physical needs plus the behavioral drives/personality that steer what
+        it wants to do. Replaces the legacy RPG health/mana/stamina readout in
+        the agent's world state (see modules/context.py)."""
+        n, d, p = self.needs, self.drives, self.personality()
+        lines = [
+            f"Focus: {d.focus:.2f}   Explore: {d.explore:.2f}",
+            f"Rest: {d.rest:.2f}   Social: {d.social:.2f}   Retreat: {d.retreat:.2f}",
+            f"Stress: {d.stress:.2f}   Anxiety: {d.anxiety:.2f}   Aggression: {d.aggression:.2f}",
+            f"Hunger: {n.hunger:.2f}   Thirst: {n.thirst:.2f}   Fatigue: {n.fatigue:.2f}",
+            f"Sanity: {n.sanity:.2f}   Morale: {n.morale:.2f}   Boredom: {n.boredom:.2f}   Loneliness: {n.loneliness:.2f}",
+        ]
+        if p is not None:
+            lines.append(
+                f"Personality: E{p.energy} N{p.mind} F{p.nature} P{p.tactics} "
+                f"(confidence {p.confidence:.2f}, risk tolerance {p.risk_tolerance:.2f})"
+            )
+        return "\n".join(lines)
+
+    def personality(self):
+        """Return the MBTI module if it holds real baseline values (not the
+        fresh all-50s defaults), else None. Used to omit a meaningless
+        placeholder personality line from get_summary()."""
+        mbti = getattr(self, "mbti", None)
+        if mbti is None:
+            return None
+        # The default constructor sets every axis to 50; only treat it as a
+        # real personality once values diverge (SetupPersonality() does this).
+        if mbti.energy == 50 and mbti.mind == 50 and mbti.nature == 50 and mbti.tactics == 50:
+            return None
+        return mbti

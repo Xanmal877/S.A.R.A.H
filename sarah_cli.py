@@ -3,6 +3,7 @@ import sys
 
 from agents.sarah import SarahAgent
 from modules.audio.tts import tts
+from modules.context import assemble_character_context
 from modules.llmClient import LLMClient
 from modules.tools.init_tools import register_all_tools
 from modules.tools.tool_orchestrator import ToolOrchestrator
@@ -16,8 +17,6 @@ async def run_interactive():
     agent = SarahAgent()
     llm_client = LLMClient.from_node_config()
     orchestrator = ToolOrchestrator(llm_client, agent=agent)
-
-    # Ensure tools are registered
     register_all_tools()
 
     while True:
@@ -29,7 +28,9 @@ async def run_interactive():
                 continue
 
             print("S.A.R.A.H. is thinking...", end="\r")
-            response = await orchestrator.process_request(user_input)
+            response = await orchestrator.process_request(
+                user_input, system_context=assemble_character_context(agent)
+            )
             print(f"S.A.R.A.H.: {response}")
             await tts.speak(response)
 
@@ -43,8 +44,8 @@ async def run_single_command(command):
     llm_client = LLMClient.from_node_config()
     orchestrator = ToolOrchestrator(llm_client, agent=agent)
     register_all_tools()
-    
-    response = await orchestrator.process_request(command)
+
+    response = await orchestrator.process_request(command, system_context=assemble_character_context(agent))
     print(response)
 
 if __name__ == "__main__":

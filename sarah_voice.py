@@ -13,6 +13,7 @@ from agents.sarah import SarahAgent
 from modules.audio.stt import SpeechToText
 from modules.audio.tts import tts
 from modules.audio.wake_word import DEFAULT_WAKE_WORD, WakeWordListener
+from modules.context import assemble_character_context
 from modules.llmClient import LLMClient
 from modules.tools.init_tools import register_all_tools
 from modules.tools.tool_orchestrator import ToolOrchestrator
@@ -35,7 +36,6 @@ async def main():
     llm_client = LLMClient.from_node_config()
     orchestrator = ToolOrchestrator(llm_client, agent=agent)
     register_all_tools()
-
     wake_word = WakeWordListener()
     stt = SpeechToText()
 
@@ -49,7 +49,9 @@ async def main():
                 continue
 
             print(f"You: {text}")
-            response = await orchestrator.process_request(text)
+            response = await orchestrator.process_request(
+                text, system_context=assemble_character_context(agent)
+            )
             print(f"S.A.R.A.H.: {response}")
             await tts.speak(response)
 

@@ -1,9 +1,11 @@
-# Core runtime dependencies — the bootstrap in main.py installs these automatically.
-# If you prefer manual setup, run: pip install discord.py python-dotenv ollama yt-dlp pytz
-# Transitive dependencies will be pulled in automatically.
+# The bootstrap installs these into the repo-local virtual environment when needed.
+# Manual setup: ../.venv/bin/python -m pip install -r requirements.txt
 
 discord.py
 python-dotenv
 ollama
 yt-dlp
 pytz
+requests
+PyNaCl
+davey

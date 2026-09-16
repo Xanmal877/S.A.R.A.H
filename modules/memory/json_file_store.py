@@ -2,6 +2,18 @@ import json
 import os
 
 
+def state_dir(character_id: str) -> str:
+    """Base directory for a character's persistent state.
+
+    Defaults to ~/.sarah/state/{character_id} (matching identity_state and
+    mental_state persistence). SARAH_STATE_DIR overrides the root so tests and
+    alternate deployments can point state elsewhere without touching the real
+    ~/.sarah tree.
+    """
+    base = os.environ.get("SARAH_STATE_DIR", os.path.expanduser("~/.sarah"))
+    return os.path.join(base, "state", character_id)
+
+
 class JsonFileStore:
     """
     Shared load/save boilerplate for the small JSON-file-backed stores in

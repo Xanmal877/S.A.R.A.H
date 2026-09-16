@@ -2,6 +2,7 @@
 # MAIN AGENT STATE MACHINE (Direct Port)
 # ===============================
 
+import logging
 import random
 
 from modules.llmClient import LLMClient
@@ -9,6 +10,8 @@ from modules.observationModule import ObservationModule
 from modules.perception import ScreenWatcher
 from modules.personaMapper import PersonaMapper
 from stateMachine import ExploreState, IdleState, StateMachine, WorkState
+
+logger = logging.getLogger("SarahStateMachine")
 
 
 class SarahStateMachine(StateMachine):
@@ -91,29 +94,40 @@ class SarahStateMachine(StateMachine):
             await self.screen_watcher.maybe_capture()
             screen_text = self.screen_watcher.get_summary()
             hive_summary = self.hive_core.get_hive_summary() if self.hive_core else None
-            identity_summary = self.agent.soul.identity.summary()
-            world_state = self.observation_module.get_world_state(
+            body_state = self.observation_module._body_state(self.agent)
+
+            # Reusable context path (identity + mental state + goal/task +
+            # available perception). This folds the same per-character
+            # identity/manifest the tool layer resolves via active_character_id.
+            from modules.context import assemble_autonomous_context
+            world_state = assemble_autonomous_context(
                 self.agent, screen_text=screen_text, hive_summary=hive_summary,
-                identity_summary=identity_summary,
+                body_state=body_state,
             )
 
             # Use the ToolOrchestrator for autonomous reasoning
             # Instead of fixed states, we ask her what she wants to do.
+            # observe_and_suggest=True restricts her to a read-only observe
+            # allowlist (policy, see ToolOrchestrator) - she may never act.
             from modules.tools.tool_orchestrator import ToolOrchestrator
-            orchestrator = ToolOrchestrator(self.llm_client, agent=self.agent)
+            orchestrator = ToolOrchestrator(
+                self.llm_client, agent=self.agent, observe_only=True,
+            )
 
             prompt = (
-                f"You are Sarah in your autonomous loop. "
-                f"Current World State:\n{world_state}\n\n"
-                f"You can choose to perform a system check, explore, tidy up, "
-                f"react to something you noticed on screen, "
-                f"or just stay idle and dream. What do you feel like doing right now?"
+                f"You are {self.agent.characterName} in your autonomous loop. "
+                f"Current context:\n{world_state}\n\n"
+                f"You observe. If you spot something worth reporting to the "
+                f"operator, say so clearly. You do not take action on your own; "
+                f"you only notice and suggest. What have you observed?"
             )
-            
+
             response_text = await orchestrator.process_request(prompt, system_context=world_state)
             print(f"[S.A.R.A.H. Autonomous]: {response_text}")
 
-        except Exception:
-            # Silently handle errors in the background loop to prevent daemon crashes
-            pass
+        except Exception as e:
+            # Never kill the daemon on a background-loop error, but do surface
+            # it in the logs so a recurring failure is visible and debuggable
+            # rather than silently swallowed.
+            logger.exception("Error in autonomous StateMachineLogic: %s", e)
 
