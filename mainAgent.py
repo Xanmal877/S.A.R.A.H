@@ -224,6 +224,13 @@ class SarahStateMachine(StateMachine):
             if scheduler and not scheduler.is_duplicate_suggestion(response_text):
                 print(f"[S.A.R.A.H. Autonomous]: {response_text}")
                 scheduler.record_suggestion(response_text)
+                # Persist this successful (non-duplicate) autonomous reflection
+                # output to this character's bounded reflection journal
+                # (system-written only; no registry/Discord exposure). The
+                # goal_id (if any) is captured so the journal links the turn to
+                # the goal it was in service of. Best-effort: a journal write
+                # failure must never break the autonomous loop.
+                self._persist_autonomous_reflection(response_text, goal_dec)
             elif scheduler:
                 logger.debug(f"Suppressed duplicate reflection: {response_text[:80]}...")
 
@@ -231,4 +238,32 @@ class SarahStateMachine(StateMachine):
             logger.warning(f"Reflection timeout after {self.orchestrator_timeout_s}s")
         except Exception as e:
             logger.exception("Error in reflection task: %s", e)
+
+    def _persist_autonomous_reflection(self, response_text: str, goal_dec) -> None:
+        """Best-effort persistence of a successful autonomous reflection output.
+
+        Only called for scheduler-deduplicated (i.e. not recently seen) output,
+        so the journal holds distinct reflections rather than a flood of repeats.
+        System-written only: the reflection journal is NOT a tool and is not
+        exposed to the registry or Discord."""
+        try:
+            from modules.soul.reflection_log.reflection_log import (
+                ENTRY_AUTONOMOUS,
+                SOURCE_AUTONOMOUS_LOOP,
+                get_reflection_log_store,
+            )
+            goal_id = None
+            if isinstance(goal_dec, dict):
+                selected = goal_dec.get("selected")
+                if isinstance(selected, dict):
+                    goal_id = selected.get("goal_id")
+            store = get_reflection_log_store(getattr(self.agent, "character_id", "sarah"))
+            store.append(
+                kind=ENTRY_AUTONOMOUS,
+                content=response_text,
+                goal_id=goal_id,
+                source=SOURCE_AUTONOMOUS_LOOP,
+            )
+        except Exception as e:  # noqa: BLE001 - journal write must never break the loop
+            logger.warning("Could not persist autonomous reflection: %s", e)
 

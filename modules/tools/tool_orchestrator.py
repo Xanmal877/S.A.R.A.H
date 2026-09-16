@@ -255,15 +255,53 @@ class ToolOrchestrator:
                 # Bound the failure note to what we persist (never the raw
                 # arbitrary args), transition proposed->failed so the consumed
                 # single-use approval is not left dangling as 'executed'.
-                store.record_outcome(proposal_id, err[:4000], success=False)
+                recorded = store.record_outcome(proposal_id, err[:4000], success=False)
+                self._interpret_outcome(recorded)
                 return err
             success = not (isinstance(result, str) and result.startswith("Error"))
-            store.record_outcome(proposal_id, result, success=success)
+            recorded = store.record_outcome(proposal_id, result, success=success)
+            self._interpret_outcome(recorded)
             return result
 
         # read-only / ordinary interactive non-destructive tools:
         # no proposal required - preserve normal behavior.
         return await executor.execute(tool_name, **args)
+
+    def _interpret_outcome(self, recorded_proposal):
+        """Best-effort deterministic interpretation of a recorded action outcome.
+
+        Invokes modules.soul.experience.outcome_interpreter AFTER
+        store.record_outcome so the interpreter turns the executor success
+        boolean into journal/goal/mood updates. It is wired here (the sole call
+        site) and is fully guarded: any failure inside the interpreter is logged
+        and swallowed - it must NEVER alter the underlying tool result or the
+        already-recorded proposal outcome.
+
+        Agent-less design: when this orchestrator has no live agent/Soul (e.g. a
+        tool-call loop without a BaseCharacter, or under test), no mental_state
+        is passed and the interpreter skips the mood nudge while still doing all
+        goal/journal bookkeeping.
+        """
+        try:
+            from modules.soul.experience.outcome_interpreter import interpret_outcome
+        except Exception as e:  # noqa: BLE001 - interpreter is optional plumbing
+            logger.warning("Outcome interpreter unavailable; skipping: %s", e)
+            return
+        mental_state = None
+        agent = getattr(self, "agent", None)
+        if agent is not None:
+            soul = getattr(agent, "soul", None)
+            if soul is not None:
+                mental_state = getattr(soul, "mental_state", None)
+        try:
+            interpret_outcome(
+                recorded_proposal,
+                mental_state=mental_state,
+                character_id=self.character_id,
+            )
+        except Exception:  # noqa: BLE001 - never let interpretation break the call
+            logger.exception("Outcome interpretation failed for proposal %s; "
+                             "tool result is unaffected", recorded_proposal.get("id"))
 
     def _approval_required_message(self, tool_name: str) -> str:
         return (
