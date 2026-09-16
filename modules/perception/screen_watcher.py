@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import time
+from typing import Callable, Optional
 
 logger = logging.getLogger("ScreenWatcher")
 
@@ -44,7 +45,7 @@ class ScreenWatcher:
     a cloud reasoning engine.
     """
 
-    def __init__(self, vision_client, interval: float = 7.0):
+    def __init__(self, vision_client, interval: float = 7.0, clock_fn: Optional[Callable[[], float]] = None):
         if not vision_client.is_local:
             raise ValueError(
                 "ScreenWatcher requires a local vision_client - raw screen "
@@ -52,6 +53,7 @@ class ScreenWatcher:
             )
         self.vision_client = vision_client
         self.interval = interval
+        self.clock_fn = clock_fn or time.monotonic
         self.last_capture_time = 0.0
         self.last_text = ""
         self.last_changed = False
@@ -78,7 +80,7 @@ class ScreenWatcher:
     async def maybe_capture(self) -> bool:
         """Capture + describe on the configured interval. Returns True if
         a new description was obtained this call."""
-        now = time.monotonic()
+        now = self.clock_fn()
         if now - self.last_capture_time < self.interval:
             return False
         self.last_capture_time = now

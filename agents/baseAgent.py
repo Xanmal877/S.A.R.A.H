@@ -159,9 +159,15 @@ class BaseCharacter:
         await self._start_avatar_bridge()
         await self._start_robotics()
 
+        # Set up the reflection scheduler (perception at 1s, reflection at 60s default)
+        self.stateMachine._setup_scheduler()
+
         seconds_since_save = 0.0
         try:
             while True:
+                # 1s tick cycle: regeneration, mental state, robotics, and perception scheduling
+                # (perception capture, not reflection reasoning)
+                
                 # Regeneration (equivalent to _physics_process)
                 self.character.Regeneration(0.1)
 
@@ -174,7 +180,10 @@ class BaseCharacter:
                 if getattr(self, "robotics_runtime", None) is not None:
                     await self.robotics_runtime.tick(0.1)
 
-                # State machine logic
+                # State machine logic: handles perception and reflection scheduling
+                # Perception happens on 1s intervals (via scheduler gate)
+                # Reflection happens on 60s intervals in background (via scheduler gate)
+                # Do NOT call screen_watcher.maybe_capture directly - scheduler handles it
                 await self.stateMachine.StateMachineLogic()
 
                 # Persist mood/needs/drives periodically, not every tick -
@@ -188,6 +197,9 @@ class BaseCharacter:
                 await asyncio.sleep(1.0)
         finally:
             await self._stop_robotics()
+            # Safely shut down the reflection scheduler
+            if self.stateMachine.reflection_scheduler is not None:
+                await self.stateMachine.reflection_scheduler.shutdown()
             save_mental_state(self.soul.mental_state, self.character_id)
 
 async def StateMachineLogic(self):
