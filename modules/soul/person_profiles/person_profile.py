@@ -265,12 +265,22 @@ class PersonProfileStore:
         return {"version": self._version, "people": self._people}
 
     def summary(self, person_id: str) -> str:
-        """A compact, human/LLM-readable summary of one person's profile."""
+        """A compact, human/LLM-readable summary of one person's profile.
+
+        The stable person id is deliberately NOT shown to model-visible text
+        unless no display name is known yet: ids are internal identity, and a
+        display name (non-authoritative) is enough for the model to address
+        the person. This keeps person ids out of prompts wherever possible.
+        """
         profile = self._people.get(person_id)
         if profile is None:
             return ""
         name = profile.get("display_name") or person_id
-        lines = [f"Profile for {name} (id: {person_id})"]
+        if profile.get("display_name"):
+            lines = [f"Profile for {name}"]
+        else:
+            lines = [f"Profile (no display name set)"]
+
         notes = profile.get("relationship_notes", [])
         if notes:
             most_recent = notes[-1]

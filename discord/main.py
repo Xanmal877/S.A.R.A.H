@@ -117,7 +117,11 @@ from modules.memory.identity_tools import (
 )
 from modules.memory.memory_tools import retrieve_memory, store_memory
 from modules.context import assemble_character_context
-from modules.soul.identity_state.identity_state import active_character_id
+from modules.soul.identity_state.identity_state import (
+    active_character_id,
+    active_person_id,
+)
+from modules.soul.person_profiles import get_person_profile_store
 from modules.tools.tool_orchestrator import ToolOrchestrator
 from modules.tools.tool_registry import registry
 
@@ -259,6 +263,15 @@ async def GenerateResponse(message, personality_id: str, model_name: str):
     personality_id becomes the character_id ToolOrchestrator resolves
     identity/avatar state through, so "tama" and "saki" get their own
     opinions/goals/avatar, not a shared/generic response.
+
+    The *caller's* identity (active_person_id) is bound from
+    message.author.id (trusted application boundary) as the stable id
+    "discord:{message.author.id}" before context assembly. The LLM never
+    selects this id. message.author.display_name is used only as
+    non-authoritative presentation metadata for the person's display name,
+    never as an identity key, so changing display_name can't rebind the
+    person. Note: only the display name is read here - writing profiles is
+    not exposed to Discord (see DISCORD_ALLOWED_TOOLS).
     """
     try:
         llm_client = LLMClient(model=model_name, api_type="ollama")
@@ -272,6 +285,22 @@ async def GenerateResponse(message, personality_id: str, model_name: str):
         # current goal + available perception) through the same reusable path
         # the autonomous loop and CLI use, resolved for this personality_id.
         active_character_id.set(personality_id)
+        # Bind the trusted caller identity so context assembly includes only
+        # this caller's person profile (if any). The id comes from the
+        # author.id, never from the LLM or message text.
+        author = getattr(message, "author", None)
+        author_id = getattr(author, "id", None)
+        if author_id is not None:
+            active_person_id.set(f"discord:{author_id}")
+            display_name = getattr(author, "display_name", None)
+            # Presentation-only: the display name is non-authoritative metadata.
+            # Real identity remains the stable discord:{author.id} key above.
+            get_person_profile_store(active_character_id.get()).upsert_profile(
+                f"discord:{author_id}",
+                display_name=display_name or "",
+                source="discord-author",
+                confidence=0.8,
+            )
         system_context = assemble_character_context(agent=None)
         return await orchestrator.process_request(message.content, system_context=system_context)
     except Exception:

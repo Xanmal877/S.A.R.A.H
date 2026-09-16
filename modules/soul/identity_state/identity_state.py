@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Optional
 
 logger = logging.getLogger("IdentityState")
 
@@ -126,6 +127,22 @@ class IdentityState:
 _identity_states: dict[str, "IdentityState"] = {}
 active_character_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "active_character_id", default="sarah"
+)
+
+# Which *person* (a caller, not a character) the current request belongs to.
+# This is set by the trusted application boundary only (Discord ->
+# "discord:{message.author.id}", CLI/voice -> "local:operator") BEFORE context
+# assembly / tool-call loop. The LLM must never choose or influence this value.
+# When None, no person profile is bound and context assembly simply omits the
+# active-person section (preserving existing behavior with no caller context).
+# It is a contextvar (not a global) for the same reason as active_character_id:
+# concurrent asyncio tasks each see their own caller, avoiding cross-talk.
+# Note: this must NOT be imported into modules/soul/person_profiles as the sole
+# resolver of "which person" for write tools - writes about real people on an
+# externally-reachable surface need an authorization design separate from a
+# contextvar the application trusts to set (see person_profile_tools.py).
+active_person_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "active_person_id", default=None
 )
 
 

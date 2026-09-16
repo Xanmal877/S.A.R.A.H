@@ -11,7 +11,10 @@ character's real digital state (needs/drives/mood).
 """
 
 from modules.memory.identity_tools import get_identity_summary
-from modules.soul.identity_state.identity_state import active_character_id
+from modules.soul.identity_state.identity_state import (
+    active_character_id,
+    active_person_id,
+)
 
 
 def _goals_summary(agent) -> str:
@@ -56,6 +59,18 @@ def assemble_character_context(agent=None, *, goal: str = None, screen_text: str
     lines = [f"[AGENT]\n{identity_summary}\nCurrent goal/task: {goal}"]
 
     lines.append(f"\n[MENTAL STATE] (needs/drives/personality; 0.0-1.0 unless noted)\n{mental_state_summary}")
+
+    # Only bind the active *caller's* person profile when the trusted boundary
+    # has set active_person_id. The LLM never chooses this id - it's provided
+    # by the application (Discord -> "discord:{author.id}", CLI/voice ->
+    # "local:operator"). With no caller context the value is None and no
+    # person profile section is emitted, preserving existing behavior.
+    person_id = active_person_id.get()
+    if person_id:
+        from modules.soul.person_profiles import _active_store
+        summary = _active_store().summary(person_id)
+        if summary:
+            lines.append(f"\n[ACTIVE PERSON] (the caller's known profile)\n{summary}")
 
     perception = []
     if screen_text:

@@ -15,6 +15,7 @@ from modules.audio.tts import tts
 from modules.audio.wake_word import DEFAULT_WAKE_WORD, WakeWordListener
 from modules.context import assemble_character_context
 from modules.llmClient import LLMClient
+from modules.soul.identity_state.identity_state import active_person_id
 from modules.tools.init_tools import register_all_tools
 from modules.tools.tool_orchestrator import ToolOrchestrator
 
@@ -49,6 +50,7 @@ async def main():
                 continue
 
             print(f"You: {text}")
+            active_person_id.set("local:operator")
             response = await orchestrator.process_request(
                 text, system_context=assemble_character_context(agent)
             )

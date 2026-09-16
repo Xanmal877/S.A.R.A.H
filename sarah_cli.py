@@ -5,8 +5,11 @@ from agents.sarah import SarahAgent
 from modules.audio.tts import tts
 from modules.context import assemble_character_context
 from modules.llmClient import LLMClient
+from modules.soul.identity_state.identity_state import active_person_id
 from modules.tools.init_tools import register_all_tools
 from modules.tools.tool_orchestrator import ToolOrchestrator
+
+LOCAL_OPERATOR_PERSON_ID = "local:operator"
 
 
 async def run_interactive():
@@ -28,6 +31,7 @@ async def run_interactive():
                 continue
 
             print("S.A.R.A.H. is thinking...", end="\r")
+            active_person_id.set(LOCAL_OPERATOR_PERSON_ID)
             response = await orchestrator.process_request(
                 user_input, system_context=assemble_character_context(agent)
             )
@@ -45,6 +49,7 @@ async def run_single_command(command):
     orchestrator = ToolOrchestrator(llm_client, agent=agent)
     register_all_tools()
 
+    active_person_id.set(LOCAL_OPERATOR_PERSON_ID)
     response = await orchestrator.process_request(command, system_context=assemble_character_context(agent))
     print(response)
 
