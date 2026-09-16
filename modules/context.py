@@ -14,7 +14,41 @@ from modules.memory.identity_tools import get_identity_summary
 from modules.soul.identity_state.identity_state import (
     active_character_id,
     active_person_id,
+    get_identity_state,
 )
+
+
+def _active_goals_context(person_id=None, character_id=None) -> str:
+    """Bounded [ACTIVE GOALS] section, rendered from the explicit goal store.
+
+    The explicit, versioned per-character goal store
+    (modules/soul/goals/, goals.json) is the character's source of truth for
+    goals this phase. Only when that store has no live (non-terminal) goals do
+    we fall back to the legacy identity_state goals so nothing already recorded
+    through the old add_goal/complete_goal tools is lost. Goal ids are shown as
+    stable reference handles so the reasoning loop can address goals in
+    follow-up tool calls (mark blocked / complete / abandon); person and
+    linked-entity ids are omitted (see render_goals).
+    """
+    cid = character_id or active_character_id.get()
+    try:
+        from modules.soul.goals.goals import active_goals_summary
+
+        section = active_goals_summary(cid, person_id=person_id)
+        if section:
+            return section
+    except Exception:  # noqa: BLE001 - goal recall must never break context
+        section = ""
+    # Legacy fallback: only surfaced when the explicit store has nothing live.
+    if not section:
+        try:
+            identity = get_identity_state(cid)
+            legacy = [g["goal"] for g in identity.goals if g.get("status") == "active"]
+            if legacy:
+                return "- " + "\n- ".join(legacy)
+        except Exception:  # noqa: BLE001
+            return ""
+    return section
 
 
 def _goals_summary(agent) -> str:
@@ -120,6 +154,18 @@ def assemble_character_context(agent=None, *, goal: str = None, screen_text: str
             goal = "Idle"
 
     lines = [f"[AGENT]\n{identity_summary}\nCurrent goal/task: {goal}"]
+
+    # Bounded, explicit goal lifecycle summary sourced from the versioned goal
+    # store (goals.json), with legacy identity goals as a fallback when the
+    # store has nothing live. This is the character's authoritative goal view
+    # and replaces the ad-hoc "active goals" line buried in the identity
+    # summary for models that need to act on / transition goals. Person scope
+    # follows the active caller (active_person_id). Raw goal ids are shown (so
+    # the loop can reference them in tools), but person/linked-entity ids are
+    # omitted. The section is omitted when there is nothing live.
+    active_goals = _active_goals_context(person_id=active_person_id.get())
+    if active_goals:
+        lines.append(f"\n[ACTIVE GOALS] (explicit goal lifecycle, bounded)\n{active_goals}")
 
     lines.append(f"\n[MENTAL STATE] (needs/drives/personality; 0.0-1.0 unless noted)\n{mental_state_summary}")
 

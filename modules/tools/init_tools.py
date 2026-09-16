@@ -6,6 +6,18 @@ from modules.memory.episodic_tools import (
     record_episode,
     retrieve_episodes,
 )
+from modules.memory.goal_tools import (
+    abandon_goal,
+    create_goal,
+    list_active_goals,
+    mark_goal_active,
+    mark_goal_blocked,
+    request_goal_approval,
+    update_goal,
+)
+from modules.memory.goal_tools import (
+    complete_goal as complete_explicit_goal,
+)
 from modules.memory.identity_tools import (
     add_dislike,
     add_goal,
@@ -141,6 +153,24 @@ def register_all_tools():
     registry.register("add_goal", add_goal, "Adds a persistent goal the character is working toward. Args: goal (str).")
     registry.register("complete_goal", complete_goal, "Marks an active goal as done. Args: goal (str).")
     registry.register("get_identity_summary", get_identity_summary, "Returns the character's current interests/dislikes/opinions/goals/relationship notes.")
+
+    # Explicit goal lifecycle - the versioned, per-character goal store
+    # (modules/soul/goals/, goals.json) with stable ids, full status lifecycle,
+    # bounded priority, and append-only audit history. These are the preferred
+    # goal tools going forward; the legacy flat add_goal/complete_goal above are
+    # preserved unchanged for backward compatibility. Trusted-local registry
+    # only (NOT exposed to Discord) - goal writing from an untrusted-input
+    # surface needs an authorization design first. Caller identity is
+    # application-bound: with active_person_id set, a goal can never be
+    # assigned/reassigned to another person.
+    registry.register("create_goal", create_goal, "Creates a new persistent goal for this character in 'proposed' status, returning a stable goal_id. Args: title (str), rationale (str, optional), source (str, optional), priority (int 1-5, optional), next_action (str, optional), person_id (str, optional).")
+    registry.register("list_active_goals", list_active_goals, "Lists this character's live (non-terminal) goals, highest priority first (read-only, bounded). Args: limit (int, optional), person_id (str, optional).")
+    registry.register("update_goal", update_goal, "Updates content (title/rationale/priority/next_action) of a live goal; each change is audited. Args: goal_id (str), title (str, optional), rationale (str, optional), priority (int 1-5, optional), next_action (str, optional), person_id (str, optional).")
+    registry.register("mark_goal_active", mark_goal_active, "Moves a proposed/blocked/awaiting_approval goal to active. Args: goal_id (str).")
+    registry.register("mark_goal_blocked", mark_goal_blocked, "Blocks a live goal, recording the reason (audited). Args: goal_id (str), reason (str, optional).")
+    registry.register("request_goal_approval", request_goal_approval, "Moves a proposed/active/blocked goal to awaiting_approval. Args: goal_id (str).")
+    registry.register("complete_goal_explicit", complete_explicit_goal, "Marks a live goal completed, recording its outcome (audited). Args: goal_id (str), outcome (str, optional).")
+    registry.register("abandon_goal", abandon_goal, "Abandons a live goal, recording why (audited). Args: goal_id (str), reason (str, optional).")
 
     # Person profiles - structured, per-person relationship records (stable
     # person IDs, auditable source/confidence/timestamp for every fact). These
