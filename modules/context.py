@@ -31,6 +31,39 @@ def _goals_summary(agent) -> str:
     return f"{current_task} (active goals: {', '.join(active_goals)})"
 
 
+def _memory_reminder_summary(goal: str) -> str:
+    """Summarize relevant episodic memories for the current caller + goal.
+
+    Bounded by RELEVANT_MEMORY_LIMIT and scoped to the current character (via
+    active_character_id) and the current caller (via active_person_id). The
+    current goal string is used as lightweight query context so recent,
+    goal-relevant episodes surface. Raw person ids are omitted by the renderer.
+    Returns "" (so the caller omits the section) when nothing matches.
+    """
+    try:
+        from modules.memory.episodic_memory import (
+            RELEVANT_MEMORY_LIMIT,
+            get_episodic_store,
+        )
+
+        cid = active_character_id.get()
+        person_id = active_person_id.get()
+        # Query terms drawn from the goal/task so goal-related memories surface
+        # first; falls back to the plain salience-ranked recent set.
+        terms = goal or None
+        memories = get_episodic_store(cid).summary(
+            person_id=person_id, query=terms, limit=RELEVANT_MEMORY_LIMIT,
+        )
+        if memories:
+            return memories
+        # No goal-matching memories: fall back to the most relevant recent ones.
+        return get_episodic_store(cid).summary(
+            person_id=person_id, limit=RELEVANT_MEMORY_LIMIT
+        )
+    except Exception:  # noqa: BLE001 - memory recall must never break context
+        return ""
+
+
 def assemble_character_context(agent=None, *, goal: str = None, screen_text: str = None,
                                hive_summary: str = None, body_state: str = None) -> str:
     """Assemble the character's full context into a single string.
@@ -71,6 +104,16 @@ def assemble_character_context(agent=None, *, goal: str = None, screen_text: str
         summary = _active_store().summary(person_id)
         if summary:
             lines.append(f"\n[ACTIVE PERSON] (the caller's known profile)\n{summary}")
+
+    # Relevant episodic memories: bounded, derived from the current caller
+    # (active_person_id / active_character_id) and the current goal/task. Raw
+    # stable person ids are omitted by the renderer. When nothing matches, the
+    # section is omitted so we don't pad context with an empty block. Capture
+    # stays explicit - memory appears here only from deliberate record_episode
+    # calls, never from auto-capturing every message.
+    memories = _memory_reminder_summary(goal)
+    if memories:
+        lines.append(f"\n[RELEVANT MEMORIES] (recalled by the model, bounded)\n{memories}")
 
     perception = []
     if screen_text:

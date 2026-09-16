@@ -1,6 +1,11 @@
 from modules.audio.tts import tts
 from modules.avatar.avatar_tools import avatar_move_to, avatar_play, avatar_say
 from modules.browser import browser
+from modules.memory.episodic_tools import (
+    get_memory_summary,
+    record_episode,
+    retrieve_episodes,
+)
 from modules.memory.identity_tools import (
     add_dislike,
     add_goal,
@@ -94,6 +99,15 @@ def register_all_tools():
     registry.register("retrieve_memory", retrieve_memory, "Retrieves a piece of information from long-term memory. Args: key (str).")
     registry.register("record_change", record_change, "Records a system change in the history log. Args: request (str), action (str), result (str).")
     registry.register("get_recent_changes", get_recent_changes, "Retrieves the last few changes made to the system.")
+
+    # Episodic memory - durable, append-only, per-character events with
+    # explicit capture (never automatic). Trusted-local registry only (NOT
+    # exposed to Discord): record_episode appends deliberately, retrieve is
+    # read-only. Retrieval never crosses character/person boundaries, and raw
+    # person ids are omitted from model-visible summaries.
+    registry.register("record_episode", record_episode, "Explicitly records a durable episodic memory for this character. Args: kind (str), content (str), source (str, optional), confidence (float 0-1, optional), salience (float 0-1, optional), goal_id (str, optional), person_id (str, optional), metadata (str, optional JSON).")
+    registry.register("retrieve_episodes", retrieve_episodes, "Retrieves relevant episodic memories for this character (read-only, bounded). Args: query (str, optional), kinds (str, optional comma-separated), limit (int, optional default 6), rank (str, optional 'salience'|'recency'), person_id (str, optional).")
+    registry.register("get_memory_summary", get_memory_summary, "Returns this character's current most-relevant episodic memory summary, without raw person ids.")
 
     # Identity tools - the calling character's own persistent opinions/
     # interests/relationship/goals (modules/soul/identity_state/), resolved
