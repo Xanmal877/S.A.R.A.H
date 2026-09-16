@@ -105,9 +105,34 @@ class SarahStateMachine(StateMachine):
                 body_state=body_state,
             )
 
+            # Deterministically select the single explicit goal this turn should
+            # focus on (an active/proposed non-terminal goal, drive-aware but
+            # fully deterministic). Selection never creates/governs goals and may
+            # be empty when nothing actionable exists - we then fall back to the
+            # generic observe-and-suggest behavior exactly as before.
+            goal_dec = None
+            try:
+                from modules.soul.goals.goal_selection import select_goal
+                goal_dec = select_goal(
+                    getattr(self.agent, "character_id", "sarah"),
+                    drives=self.agent.soul.mental_state.drives,
+                )
+            except Exception:  # noqa: BLE001 - selection must never break the loop
+                goal_dec = None
+
+            selected = goal_dec["selected"] if goal_dec else None
+            goal_focus = ""
+            if selected:
+                goal_focus = (
+                    f"\n[SELECTED GOAL] (deterministic focus for this turn)\n"
+                    f"{selected['title']} [{selected['status']}, priority "
+                    f"{selected['priority']}]\n"
+                    f"why: {goal_dec['reason']}"
+                )
+
             # Use the ToolOrchestrator for autonomous reasoning
             # Instead of fixed states, we ask her what she wants to do.
-            # observe_and_suggest=True restricts her to a read-only observe
+            # observe_only=True restricts her to a read-only observe
             # allowlist (policy, see ToolOrchestrator) - she may never act.
             from modules.tools.tool_orchestrator import ToolOrchestrator
             orchestrator = ToolOrchestrator(
@@ -116,10 +141,16 @@ class SarahStateMachine(StateMachine):
 
             prompt = (
                 f"You are {self.agent.characterName} in your autonomous loop. "
-                f"Current context:\n{world_state}\n\n"
-                f"You observe. If you spot something worth reporting to the "
-                f"operator, say so clearly. You do not take action on your own; "
-                f"you only notice and suggest. What have you observed?"
+                f"Current context:\n{world_state}\n"
+                f"{goal_focus}\n\n"
+                f"You observe ONLY, in service of the selected goal above (if a "
+                f"goal is present). Look only for what might inform the next step "
+                f"for that goal and suggest concrete next steps for it. If no "
+                f"goal was selected, simply observe generally. If you spot "
+                f"something worth reporting to the operator, say so clearly. You "
+                f"do not take action on your own and you do not create, modify, "
+                f"or complete goals; you only notice and suggest. What have you "
+                f"observed / what next step do you suggest for the goal?"
             )
 
             response_text = await orchestrator.process_request(prompt, system_context=world_state)
