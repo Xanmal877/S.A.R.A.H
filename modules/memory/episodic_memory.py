@@ -223,6 +223,27 @@ class EpisodicMemoryStore:
         rows = self._query(sql, params)
         return [self._row_to_episode(r) for r in rows]
 
+    def get_by_id(self, episode_id: int):
+        """Fetch a single episode owned by this character, or None.
+
+        Used by semantic consolidation to verify provenance: an episode may
+        only be read (and turned into a fact) when it belongs to this store's
+        character. Returns the episode dict or None when missing / not owned.
+        """
+        try:
+            episode_id = int(episode_id)
+        except (TypeError, ValueError):
+            return None
+        rows = self._query(
+            "SELECT {cols} FROM episodes WHERE id = ? AND character_id = ?".format(
+                cols=_SELECT_COLS
+            ),
+            [episode_id, self.character_id],
+        )
+        if not rows:
+            return None
+        return self._row_to_episode(rows[0])
+
     def count(self, character_id: str = None) -> int:
         """Total episodes for a character (defaults to this store's character)."""
         cid = character_id or self.character_id

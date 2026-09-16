@@ -30,6 +30,12 @@ from modules.memory.person_profile_tools import (
     set_person_preference,
     upsert_person_profile,
 )
+from modules.memory.semantic_tools import (
+    add_semantic_fact,
+    consolidate_episode,
+    get_semantic_fact_summary,
+    retrieve_facts,
+)
 from modules.system.clipboard import get_clipboard, set_clipboard
 from modules.system.containers import (
     container_logs,
@@ -108,6 +114,19 @@ def register_all_tools():
     registry.register("record_episode", record_episode, "Explicitly records a durable episodic memory for this character. Args: kind (str), content (str), source (str, optional), confidence (float 0-1, optional), salience (float 0-1, optional), goal_id (str, optional), person_id (str, optional), metadata (str, optional JSON).")
     registry.register("retrieve_episodes", retrieve_episodes, "Retrieves relevant episodic memories for this character (read-only, bounded). Args: query (str, optional), kinds (str, optional comma-separated), limit (int, optional default 6), rank (str, optional 'salience'|'recency'), person_id (str, optional).")
     registry.register("get_memory_summary", get_memory_summary, "Returns this character's current most-relevant episodic memory summary, without raw person ids.")
+
+    # Semantic memory - durable facts consolidated from episodes with explicit
+    # provenance and an append-only revision model (a new fact with the same
+    # scope+topic supersedes earlier active revisions, never deleting history).
+    # Trusted-local registry only (NOT exposed to Discord): consolidation and
+    # fact writes are deliberate, and retrieval is read-only + bounded with raw
+    # person ids omitted from model-visible summaries. Nothing auto-consolidates
+    # and no LLM is called.
+    registry.register("consolidate_episode", consolidate_episode, "Explicitly consolidates a durable semantic fact from a source episode, recording provenance. The episode must belong to the active character. Args: episode_id (int), topic (str), value (str), confidence (float 0-1, optional), salience (float 0-1, optional), source_note (str, optional), metadata (str, optional JSON).")
+    registry.register("add_semantic_fact", add_semantic_fact, "Explicitly appends a semantic fact for this character. Args: topic (str), value (str), person_id (str, optional), source_episode_id (int, optional), source_note (str, optional), confidence (float 0-1, optional), salience (float 0-1, optional), metadata (str, optional JSON).")
+    registry.register("retrieve_facts", retrieve_facts, "Retrieves relevant active semantic facts for this character (read-only, bounded, raw person ids omitted). Args: topic (str, optional), query (str, optional), limit (int, optional default 6), person_id (str, optional).")
+    registry.register("get_semantic_fact_summary", get_semantic_fact_summary, "Returns this character's current most-relevant semantic fact summary, without raw person ids.")
+
 
     # Identity tools - the calling character's own persistent opinions/
     # interests/relationship/goals (modules/soul/identity_state/), resolved

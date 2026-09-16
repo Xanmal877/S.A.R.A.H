@@ -64,6 +64,36 @@ def _memory_reminder_summary(goal: str) -> str:
         return ""
 
 
+def _semantic_fact_summary(goal: str) -> str:
+    """Summarize relevant semantic facts for the current caller + goal.
+
+    Bounded by RELEVANT_FACT_LIMIT and scoped to the current character (via
+    active_character_id) and the current caller (via active_person_id). The
+    current goal string is used as lightweight query context so goal-relevant
+    facts surface. Raw person ids are omitted by the renderer. Returns ""
+    (so the caller omits the section) when nothing matches.
+    """
+    try:
+        from modules.memory.semantic_memory import (
+            RELEVANT_FACT_LIMIT,
+            get_semantic_store,
+        )
+
+        cid = active_character_id.get()
+        person_id = active_person_id.get()
+        terms = goal or None
+        facts = get_semantic_store(cid).summary(
+            person_id=person_id, query=terms, limit=RELEVANT_FACT_LIMIT,
+        )
+        if facts:
+            return facts
+        return get_semantic_store(cid).summary(
+            person_id=person_id, limit=RELEVANT_FACT_LIMIT
+        )
+    except Exception:  # noqa: BLE001 - fact recall must never break context
+        return ""
+
+
 def assemble_character_context(agent=None, *, goal: str = None, screen_text: str = None,
                                hive_summary: str = None, body_state: str = None) -> str:
     """Assemble the character's full context into a single string.
@@ -114,6 +144,16 @@ def assemble_character_context(agent=None, *, goal: str = None, screen_text: str
     memories = _memory_reminder_summary(goal)
     if memories:
         lines.append(f"\n[RELEVANT MEMORIES] (recalled by the model, bounded)\n{memories}")
+
+    # Relevant semantic facts: durable facts consolidated from episodes, scoped
+    # to the current character (active_character_id) and caller
+    # (active_person_id), rendered without raw person ids. Facts are surfaced
+    # only when present, so the section is omitted when nothing is stored.
+    # Nothing here triggers an LLM call or auto-consolidates episodes - facts
+    # appear only from explicit consolidate_episode / add_semantic_fact calls.
+    semantic_summary = _semantic_fact_summary(goal)
+    if semantic_summary:
+        lines.append(f"\n[RELEVANT FACTS] (consolidated semantic facts, bounded)\n{semantic_summary}")
 
     perception = []
     if screen_text:
