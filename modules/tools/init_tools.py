@@ -17,6 +17,14 @@ from modules.memory.memory_tools import (
     retrieve_memory,
     store_memory,
 )
+from modules.memory.person_profile_tools import (
+    add_person_relationship_note,
+    get_person_profile,
+    list_person_profiles,
+    set_person_consent_boundary,
+    set_person_preference,
+    upsert_person_profile,
+)
 from modules.system.clipboard import get_clipboard, set_clipboard
 from modules.system.containers import (
     container_logs,
@@ -100,6 +108,20 @@ def register_all_tools():
     registry.register("add_goal", add_goal, "Adds a persistent goal the character is working toward. Args: goal (str).")
     registry.register("complete_goal", complete_goal, "Marks an active goal as done. Args: goal (str).")
     registry.register("get_identity_summary", get_identity_summary, "Returns the character's current interests/dislikes/opinions/goals/relationship notes.")
+
+    # Person profiles - structured, per-person relationship records (stable
+    # person IDs, auditable source/confidence/timestamp for every fact). These
+    # are per-character via active_character_id and only affect the current
+    # character's own ~/.sarah/state/{character_id}/person_profiles.json.
+    # Deliberately NOT exposed to Discord (trusted local operator only) until
+    # an authorization design exists for writing person profiles from an
+    # untrusted-input surface - see discord/main.py DISCORD_ALLOWED_TOOLS.
+    registry.register("upsert_person_profile", upsert_person_profile, "Creates or updates the relationship profile for a specific person (stable person_id). Args: person_id (str), display_name (str, optional), source (str, optional), confidence (float, optional).")
+    registry.register("get_person_profile", get_person_profile, "Returns the structured profile for a person: display name, relationship notes, preferences, consent boundaries. Args: person_id (str).")
+    registry.register("list_person_profiles", list_person_profiles, "Lists known people (stable ids + display names) for the current character.")
+    registry.register("set_person_preference", set_person_preference, "Records/updates a specific person's preference (keyed). Args: person_id (str), pref_key (str), value (str), source (str, optional), confidence (float, optional).")
+    registry.register("set_person_consent_boundary", set_person_consent_boundary, "Records/updates a specific person's consent boundary. Args: person_id (str), boundary_key (str), value (str), source (str, optional), confidence (float, optional).")
+    registry.register("add_person_relationship_note", add_person_relationship_note, "Adds a sourced relationship note to a specific person's profile. Args: person_id (str), note (str), source (str, optional), confidence (float, optional).")
 
     # Browser tools (Playwright/Firefox, dedicated profile - see modules/browser/)
     registry.register("browser_navigate", browser.navigate, "Navigates Sarah's own browser to a URL. Args: url (str).")
