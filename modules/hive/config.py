@@ -16,15 +16,19 @@ DEFAULT_CONFIG = {
     "port": 8787,
     "node_name": None,     # defaults to hostname if unset
     "poll_interval": 20.0,
-    "model": "local",       # sent as the "model" field in the LLM request; llama-server
-                             # doesn't validate this against anything (see llama_server_manager.py)
-    "api_type": "openai",   # llama-server speaks OpenAI-compatible /v1/chat/completions
-    "base_url": None,       # None = LLMClient's own default (Ollama's port). Nodes using
-                             # llama-server must set this explicitly (e.g. http://127.0.0.1:8090)
-                             # so a node that only overrides "model"/"api_type" (like the Pi,
-                             # which uses Ollama) doesn't inherit a wrong base_url from here.
+    "model": "deepseek-v4-flash:cloud",  # reasoning model; Ollama's ":cloud" suffix routes
+                             # the request through Ollama's cloud proxy, so this node's
+                             # reasoning runs via the cloud while staying on api_type "ollama".
+    "api_type": "ollama",   # default reasoning runtime is Ollama at localhost:11434. The
+                             # selected Ollama model tag ("local" vs ":cloud") chooses
+                             # local vs cloud reasoning - no separate routing required.
+    "base_url": None,       # None = LLMClient's own default (http://localhost:11434). A node
+                             # that deliberately points at a remote/no-longer-default Ollama
+                             # (e.g. a hive peer) can override this explicitly.
     "num_ctx": 8192,        # requested context window, in tokens
-    "auto_start_llama_server": True,
+    "auto_start_llama_server": False,  # default reasoning is Ollama now, so no local
+                             # llama-server is auto-started. (Legacy llama-server nodes must
+                             # set api_type "openai" + base_url + this true explicitly.)
     "llama_model_path": "models/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
     "llama_port": 8090,
 }

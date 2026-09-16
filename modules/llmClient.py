@@ -40,19 +40,42 @@ class LLMClient:
         return cls(**kwargs)
 
     @property
+    def is_cloud_routed(self) -> bool:
+        """
+        True when this reasoning engine is cloud-routed, i.e. when Ollama's
+        model tag carries the ":cloud" suffix (the tag choice selects local
+        vs cloud; see AGENTS.md) or the base_url is not a loopback address.
+        Pure config inspection - never contacts the network.
+        """
+        if ":cloud" in self.model.lower():
+            return True
+        host = self.base_url.split("//", 1)[-1].split(":", 1)[0].split("/", 1)[0]
+        return host not in ("localhost", "127.0.0.1", "::1")
+
+    @property
     def is_local(self) -> bool:
         """
         True only if this reasoning engine runs on this machine. Ollama's
         ":cloud" model suffix routes the request through Ollama's cloud
         proxy, and a non-loopback base_url means the engine is remote too.
-        Privacy-sensitive context (e.g. screen OCR - see
+        Privacy-sensitive context (e.g. screen OCR / screen awareness - see
         modules/perception/screen_watcher.py) should be gated on this,
         since a non-local engine means that data leaves the machine.
         """
-        if ":cloud" in self.model.lower():
-            return False
-        host = self.base_url.split("//", 1)[-1].split(":", 1)[0].split("/", 1)[0]
-        return host in ("localhost", "127.0.0.1", "::1")
+        return not self.is_cloud_routed
+
+    def describe_runtime(self) -> str:
+        """
+        Startup diagnostic/report helper: states the configured reasoning
+        model, endpoint, and whether the model tag is cloud-routed. Pure
+        config inspection - makes no network calls and never logs or emits
+        any prompt content.
+        """
+        route = "cloud-routed" if self.is_cloud_routed else "local"
+        return (
+            f"reasoning runtime: api_type={self.api_type}, "
+            f"model={self.model} ({route}), endpoint={self.base_url}"
+        )
 
     def _sync_generate(self, prompt: str) -> str:
         try:
