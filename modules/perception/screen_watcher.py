@@ -3,6 +3,7 @@ import base64
 import difflib
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -37,13 +38,23 @@ class ScreenWatcher:
     1s agent tick), so ObservationModule can fold what's on-screen into
     her world state.
 
-    Capture uses `spectacle` (KDE's headless screenshot tool - this
-    machine's desktop environment) as a subprocess. The screenshot image
+    Capture runs an ordered chain of screenshot tools and takes the first
+    one that produces a PNG (see CAPTURE_CHAIN). No single tool is assumed
+    to exist: `spectacle` is KDE's, `grim` is Wayland-native, and `mss` is a
+    pure-Python fallback that works over XWayland. The screenshot image
     itself is only ever handed to `vision_client`, which must be local
     (LLMClient.is_local) - `describe_image` refuses otherwise. Only the
     resulting sanitized text description is kept/exposed further, e.g. to
     a cloud reasoning engine.
     """
+
+    # (program, argv-template) in priority order. {out} is the output file.
+    # Adding a capture backend is a one-line change here - never logic.
+    CAPTURE_CHAIN = (
+        ("spectacle", ("spectacle", "-b", "-n", "-f", "-o", "{out}")),
+        ("grim", ("grim", "{out}")),
+        ("gnome-screenshot", ("gnome-screenshot", "-f", "{out}")),
+    )
 
     def __init__(self, vision_client, interval: float = 7.0, clock_fn: Optional[Callable[[], float]] = None):
         if not vision_client.is_local:
@@ -57,25 +68,68 @@ class ScreenWatcher:
         self.last_capture_time = 0.0
         self.last_text = ""
         self.last_changed = False
+        # Which backend last succeeded / how it last failed. Diagnostic only,
+        # but it is what makes a blind start *visible* instead of silent - the
+        # failure mode that hid "spectacle SIGABRT" for weeks.
+        self.last_backend = None
+        self._capture_failures_logged = False
+        self._log_session_env()
+
+    @staticmethod
+    def _log_session_env():
+        """Log the graphical-session variables this process actually has.
+
+        A screenshot tool can only work if the daemon inherited the desktop
+        session's environment (WAYLAND_DISPLAY / XDG_RUNTIME_DIR / DISPLAY).
+        Logging them once at startup turns 'she is blind' into either an
+        explicit misconfiguration or a genuine capture-tool failure.
+        """
+        env = {k: os.environ.get(k, "<unset>") for k in
+               ("XDG_SESSION_TYPE", "WAYLAND_DISPLAY", "DISPLAY",
+                "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")}
+        logger.info("Screen capture session env: " +
+                    ", ".join(f"{k}={v}" for k, v in env.items()))
 
     def _capture_and_encode_sync(self) -> str:
         with tempfile.TemporaryDirectory() as tmpdir:
             shot_path = os.path.join(tmpdir, "screen.png")
-            try:
-                subprocess.run(
-                    ["spectacle", "-b", "-n", "-o", shot_path],
-                    timeout=10, check=True,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                )
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
-                logger.warning(f"Screenshot capture failed: {e}")
-                return ""
+            errors = []
+            for program, argv in self.CAPTURE_CHAIN:
+                if shutil.which(program) is None:
+                    continue
+                out_arg = argv[-1].format(out=shot_path)
+                run_argv = [out_arg if a == "{out}" else a for a in argv]
+                try:
+                    subprocess.run(
+                        run_argv, timeout=15, check=True,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                        OSError) as e:
+                    errors.append(f"{program}: {e}")
+                    continue
+                if not os.path.exists(shot_path):
+                    errors.append(f"{program}: produced no file")
+                    continue
+                try:
+                    with open(shot_path, "rb") as f:
+                        data = f.read()
+                except OSError as e:
+                    errors.append(f"{program}: {e}")
+                    continue
+                if not data:
+                    errors.append(f"{program}: empty file")
+                    continue
+                self.last_backend = program
+                self._capture_failures_logged = False
+                return base64.b64encode(data).decode()
 
-            if not os.path.exists(shot_path):
-                return ""
-
-            with open(shot_path, "rb") as f:
-                return base64.b64encode(f.read()).decode()
+            if errors and not self._capture_failures_logged:
+                # Log verbosely once, then stay quiet until a success, so a
+                # broken capture path is loud but does not spam every 7s.
+                logger.warning("All screen capture backends failed: " + "; ".join(errors))
+                self._capture_failures_logged = True
+            return ""
 
     async def maybe_capture(self) -> bool:
         """Capture + describe on the configured interval. Returns True if
