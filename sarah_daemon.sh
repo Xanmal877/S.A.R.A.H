@@ -4,7 +4,12 @@
 # so it can be reliably started/stopped/checked instead of relying on the
 # caller to manage the process by hand.
 
-PROJECT_ROOT="/home/xanmal/Documents/Projects/repositories/S.A.R.A.H"
+# Resolve the repo root from this script's own location, so the script can
+# never silently start a *different* tree - it used to hardcode
+# "~/Documents/Projects/repositories/S.A.R.A.H", which is not where the live
+# checkout is. systemd runs the unit instead (see
+# ~/.config/systemd/user/sarah.service); this script remains for manual runs.
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PYTHONPATH="$PROJECT_ROOT"
 
 SARAH_HOME="$HOME/.sarah"
