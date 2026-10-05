@@ -402,8 +402,8 @@ class OrchestratorApprovalGateTests(_EnvMixin, unittest.TestCase):
         self.assertEqual(self.calls, [("send_notification", {"title": "x"})])
         self.assertEqual(result, "ok")
 
-    def test_autonomous_policy_compatibility_blocks_without_proposal_tool(self):
-        # Under observe_only, the write tool is refused outright (stricter than
+    def test_autonomous_policy_allows_proposing_but_blocks_execution(self):
+        # Under observe_only, an executor tool is refused outright (stricter than
         # the non-observe gate) and never executes even with a proposal id.
         _register_sentinel("run_command", self.calls)
         store = self._store("sarah")
@@ -416,10 +416,19 @@ class OrchestratorApprovalGateTests(_EnvMixin, unittest.TestCase):
         result = self._run(orch)
         self.assertEqual(self.calls, [])
         self.assertEqual(result, "I observed only.")
-        # Under observe_only, the approval tools are NOT in the effective allowlist.
+        # Under observe_only the autonomous loop MAY propose (propose_action is a
+        # suggestion, not an action - AGENTS.md "observe and suggest only"), and
+        # may read back what it already asked for. It may NEVER decide: the
+        # operator's approve/reject verbs stay outside the allowlist, and no
+        # executor tool is reachable at all. The approval gate itself is
+        # untouched (the run_command above was still refused).
         allowed = orch._effective_allowlist or set()
+        self.assertIn("propose_action", allowed)
+        self.assertIn("list_pending_actions", allowed)
         self.assertNotIn("approve_action", allowed)
-        self.assertNotIn("propose_action", allowed)
+        self.assertNotIn("reject_action", allowed)
+        self.assertNotIn("run_command", allowed)
+
 
     def test_discord_exclusion(self):
         # The action-proposal tools are trusted-local and must NOT be reachable

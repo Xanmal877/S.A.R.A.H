@@ -123,6 +123,19 @@ class ToolOrchestrator:
             "list_media_players", "media_status", "get_clipboard",
             "list_windows", "git_status", "git_log", "git_diff",
             "retrieve_memory", "get_opinion",
+            # propose_action is a *suggestion*, not an action: it mints a
+            # pending proposal (status "proposed") and can never execute
+            # anything. Allowing it is exactly what "observe-and-suggest only"
+            # means - without it the autonomous loop can notice a problem but
+            # has no way to ask the operator for permission to fix it, which
+            # left the consent loop open at the top (measured: the loop's own
+            # propose_action attempt was refused with "Blocked disallowed tool
+            # call: propose_action (context=observe_only)"). list_pending_actions
+            # is its read-only companion so she can see what she already asked.
+            # NO executor tool is added here, and the approval gate in
+            # _execute_gated is untouched: an approved proposal is still
+            # consumed by a human-driven caller, never by this loop.
+            "propose_action", "list_pending_actions",
         }
         # The effective allowlist actually used for dispatch (see below).
         self._effective_allowlist = self._compute_effective_allowlist()
