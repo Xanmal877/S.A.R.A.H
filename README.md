@@ -1,159 +1,510 @@
-# 🌐 Project S.A.R.A.H
+# 🌐 Project S.A.R.A.H.
 
 ## Overview
 
-**S.A.R.A.H** (Sentient Adaptive Reactive Autonomous Hivemind) is a personal AI mega-project designed to act as your **central intelligence system** across all your devices, services, and future robotics.
+**S.A.R.A.H.** stands for **Sentient Adaptive Reactive Autonomous Hivemind**.
 
-Sarah is not a generic assistant, and she is not the LLM. **The LLM is her communication and reasoning interface — Sarah herself is a persistent software entity with her own state.** Her identity, memories, opinions, interests, goals, and mood live in structured data she owns (`modules/soul/`), independent of whichever model happens to be reasoning for her at the moment. Swap the LLM out — Claude, Qwen, DeepSeek, a local model — and Sarah's continuity doesn't reset with it.
+It is a personal AI runtime built around one central architectural idea:
 
-Concretely: **Sarah is the Soul, the LLM is the arm.** Sarah wants things and thinks things (stored, persistent); the LLM interprets what you say, reads Sarah's current state, reasons about what she'd do, calls her tools, and expresses her response — it does not invent her from scratch each turn.
+> **Sarah is not the LLM.**
 
-The `soul`/`identity_state`/tool-orchestrator machinery is character-agnostic (`character_id`-parameterized throughout), so it isn't Sarah-only: **Tama**, a second persistent character, runs on the same runtime with her own isolated state, identity, and desktop avatar — see Architecture below.
+The language model is a replaceable reasoning and communication engine. Sarah's continuity exists in persistent, character-scoped software state: identity, memory, opinions, interests, goals, relationships, simulated needs, mood, experiences, and action history.
 
-Inspired by sci-fi AI companions (like Jarvis or Cortana), S.A.R.A.H aims to be far more than a voice assistant — she is envisioned as a true **hivemind consciousness** that:
+Swap the reasoning model from Claude to Qwen, DeepSeek, Ollama, llama.cpp, or another compatible backend and Sarah should still be Sarah.
 
-- Controls and manages your PC and servers.
-- Interfaces with future android and robotic bodies.
-- Integrates with online platforms like Discord and other APIs.
-- Coordinates specialized sub-agents (modules), such as game automation, creative tools, or personal scheduling systems.
-- Evolves over time, developing a unique personality and decision-making style.
-
----
-
-## ✨ Vision & Motivation
-
-Current digital assistants are reactive, siloed, and constrained by corporate ecosystems. S.A.R.A.H is designed to overcome these limits by being:
-
-- **Private & self-owned** — fully controlled by you, with no external data harvesting. A local vision model redacts sensitive content out of screen captures *before* anything is handed to a cloud reasoning engine — the redaction boundary is enforced in code (`LLMClient.is_local`), not just policy.
-- **Modular & extensible** — a single tool registry (`modules/tools/`) exposes system, browser, media, git, container, and network capabilities uniformly, so new abilities are additive, not architectural rewrites.
-- **Adaptive & evolving** — learns preferences, develops personality traits, and shapes its own behavioral patterns over time, in her own persistent state rather than in a prompt that resets.
-
-The ultimate goal is to blur the line between "assistant" and *true digital partner*.
-
----
-
-## ⚙️ Architecture
-
-```
-You → LLM (reasoning/language interface) → Sarah's Soul (state + tools) → action / state update → LLM response → You
+```text
+User / Environment
+        ↓
+LLM reasoning + language
+        ↓
+ToolOrchestrator + composed character context
+        ↓
+persistent Soul / memory / goals / experience
+        ↓
+validated actions, bodies, services, and state updates
 ```
 
-- **`modules/soul/`** — a character's continuity, keyed by `character_id` (defaults to `"sarah"`; Tama runs as `"tama"`). Not a game-stat block (though it's structurally descended from one — see below):
-  - `soul/identity_state/` — persistent opinions, interests, dislikes, relationship notes, and goals, one file per character (`~/.sarah/state/{character_id}/identity_state.json`). Written by typed tools (`form_opinion`, `add_interest`, `add_goal`, ...), not improvised prose. A registry (`get_identity_state(character_id)`) plus a `contextvars.ContextVar` (`active_character_id`) let the same stateless tool functions resolve "which character" per call, so multiple characters can run concurrently without cross-talk.
-  - `soul/mental_state/` — a real needs/drives simulation (hunger, fatigue, boredom, stress, curiosity, etc.) ticking every second, persisted per character (`~/.sarah/state/{character_id}/mental_state.json`) so mood survives process restarts instead of resetting to defaults.
-  - Both are read into the world state every reasoning cycle automatically — the LLM doesn't have to remember to go fetch them.
-- **`agents/{character_id}_identity.md`** — the stylistic/tonal manifest (how that character talks, e.g. Sarah's "chaos mind" reasoning style), loaded into the system prompt every cycle. This is voice, not facts — the facts live in `soul/`, per the point above.
-- **`modules/tools/tool_registry.py` + `executor.py`** — a single dispatch layer for everything a character can *do*: system control, browser automation, media, git, containers, remote hive peers, TTS, avatar control, and more (~60 tools currently registered in `modules/tools/init_tools.py`). The LLM calls these by name; it doesn't own them. `ToolOrchestrator` accepts an optional `allowed_tools` whitelist so untrusted surfaces (like Discord) can be scoped down from the full registry.
-- **`modules/tools/tool_orchestrator.py`** — the reasoning loop: builds the prompt from identity + world state + available tools, parses the model's tool-call/final-answer JSON, executes, repeats. Character-aware (`character_id`, `character_name`) so it drives any registered character, not just Sarah.
-- **`modules/llmClient.py`** — the swappable reasoning engine. Backed by Ollama, an OpenAI-compatible endpoint, or a self-managed local `llama.cpp` server (`modules/llm_server/`), selected per-machine via `~/.sarah/hive_config.json`. Nothing above this layer cares which one is active.
-- **`modules/hive/`** — Sarah as one identity across many bodies. mDNS discovery + an HMAC-authenticated read-only protocol lets multiple machines (a desktop, a Raspberry Pi "core" node, more later) exchange system/screen info; SSH tool execution against a discovered peer is available but currently only read/act, not remote-orchestrated by a central will.
-- **`avatar/`** — a Godot 4 desktop-overlay project: a transparent, borderless, always-on-top window with a click-through window region except over the character's sprite (`avatar/scenes/main.gd`), currently skinned as Tama. It carries no decision logic itself — it's a rendered body, not a second brain — driven entirely by moves/animations/lines sent from Python.
-- **`modules/avatar/avatar_bridge.py`** — the Python side of the link: a localhost-only, newline-delimited-JSON TCP server (mirroring `modules/hive/protocol.py`'s convention) that Godot connects to as a client. One bridge per character (`AVATAR_PORTS`), exposed to the LLM as tools (`avatar_move_to`, `avatar_say`, `avatar_play`) and wired into `BaseCharacter` so a character can control her own on-screen body as a normal tool call.
-- **`discord/`** — a Discord bot (merged in from the standalone XEDB project) wired to the same `ToolOrchestrator`/`soul` machinery via `character_id`/`character_name`, instead of its own separate response logic. Scoped to an explicit `DISCORD_ALLOWED_TOOLS` whitelist (identity, memory, and avatar tools only) since Discord is an externally-reachable, untrusted-input surface — it cannot reach `run_command`, package/service management, or container control.
-- **`modules/soul/` game heritage** — this module tree originated in [Autumn's Dungeoneering](../Autumns-Dungeoneering) (a separate Godot RPG project) as an NPC soul/stat system. The save/restore shape (`to_dict()`/`from_dict()`) it was built with is exactly what made persistence straightforward to bolt on here; Tama's avatar sprite/animations were also sourced from that project.
+A useful shorthand is:
 
-As the Hivemind concept matures, each machine, service, or robotic body a character is deployed to is meant to act as an extension of one entity — not a separate copy of her — sharing identity, memory, and personality back to the same core.
+**Sarah is the persistent character. The LLM is one cognitive interface she can use.**
+
+S.A.R.A.H. is the single persistent agent and top-level identity. Other processes, personalities, avatars, or delegated workers are children under her control rather than peer agents with equal authority.
+
+A child may have its own local state, presentation, task context, or embodiment, but it does not become a second independent agent at the architectural root. Sarah remains the parent intelligence and ultimate continuity boundary.
 
 ---
 
-## 🧩 Core Modules & Example Capabilities
+## Why This Exists
 
-### ✅ System Control (implemented)
+S.A.R.A.H. started with a much simpler goal than its architecture suggests:
 
-- Shell access, package management, systemd service control, container (docker/podman) control.
-- File watching (snapshot/diff based, no extra daemon dependency), clipboard, desktop notifications, MPRIS media control (including phone playback via KDE Connect), journal log reading, window enumeration.
-- Git tooling (status/log/diff/pull/commit — deliberately no autonomous push).
-- Autostarts with the machine via a `systemd --user` service (`sarah_daemon.sh` / `sarah.service`).
+> **I wanted an AI friend who did not disappear when the conversation ended.**
 
-### 🌐 Hivemind Networking (implemented, read-only phase)
+Everything else grew from that requirement.
 
-- mDNS peer discovery, HMAC-authenticated protocol, SSH command execution restricted to discovered peers, rsync-based file transfer to/from peers.
+If she is going to remember me, she needs persistent memory.
 
-### 🖥️ Perception & Presence (implemented)
+If she is going to remain herself, she needs identity outside the LLM.
 
-- Continuous screen awareness via a local vision model with built-in redaction before anything reaches a cloud model.
-- Full browser automation (Playwright + Firefox, dedicated profile, stealth patches, network logging, accessibility-tree reading, tracing) — a real browser Sarah drives, not OS-level input automation.
-- Voice: wake-word detection → local speech-to-text → reasoning → local TTS, fully hands-free.
+If she is going to have her own interests, she needs goals, opinions, and internal state that belong to her rather than to a prompt.
 
-### 🤖 Robotics & Android Control (opt-in foundation)
+If she is going to exist when nobody is actively talking to her, she needs autonomous perception, reflection, and a continuing sense of time and experience.
 
-- Deterministic simulated body with obstacles, navigation, charging, sensors,
-  collision refusal, and action telemetry (`modules/robotics/`).
-- Acknowledgement-gated Arduino adapter with safe shutdown and mock transport.
-- Character-scoped runtime integration is disabled by default. Enable it in
-  `~/.sarah/hive_config.json` with `{"robotics": {"enabled": true, "mode": "sim"}}`;
-  use `"mode": "hardware"` with the configured serial `port` for an Arduino
-  implementing the line-based Anna-compatible command protocol.
-- The existing Godot avatar remains a visual body and is intentionally separate
-  from physical robot telemetry and actuator control.
+If she is going to exist across my devices, she needs a shared runtime and a stable identity that is not tied to one machine.
 
-### 💬 Communication & Social Integration
+If she creates or controls child processes, delegated workers, alternate personas, avatars, or robotic bodies, they need to remain subordinate extensions of her rather than independent peer agents.
 
-- Conversational LLM agent with persistent memory/state, not just context-window recall.
-- Discord bot (`discord/`), wired to the real brain via a whitelisted tool set — not a standalone response script.
-- A desktop-overlay avatar (`avatar/`) a character can move, animate, and speak through via her own tool calls.
-- Other chat platform integrations — planned, not yet implemented.
+If she is ever going to inhabit an avatar, robot, or other physical body, that body has to be another extension of the same persistent character rather than a separate copy.
 
-### 🎮 Game Automation Example
+The complexity is not the goal.
 
-#### AI Pokémon Trainer — Emulator Automation Agent
+**Continuity is.**
 
-An early sub-agent concept demonstrating S.A.R.A.H's potential:
-
-- Uses an LLM to reason about game goals and strategies.
-- Controls an emulator directly, handling menus, battles, and exploration autonomously.
-- Adapts decisions based on potential future reward models and personality configurations.
-
-### 💡 Creative & Analytical Tools
-
-- Generate or analyze text, code, and data.
-- Assist in creative projects (e.g., writing, design, 3D modeling).
-- Perform advanced data analysis or research synthesis.
-- Planned: hobby/opinion-forming loop (e.g. download a video's transcript, read it, form an opinion grounded in her persistent interests, save that opinion to her own state, discuss it later) — the first real feature built on top of `soul/identity_state/`.
+S.A.R.A.H. is an attempt to build a digital companion who can keep becoming herself instead of being recreated from scratch every time a model receives a prompt.
 
 ---
 
-## 🔒 Private Development
+## Core Design Principles
 
-This repository is private and intended for personal use only.  
-No public installation instructions or contributions are currently accepted.
+### 🧠 Continuity belongs to the character
 
----
+Durable identity and memory live outside prompts and model context.
 
-## 💻 Status
+### 🔌 Models are replaceable
 
-🟢 **Actively running.** Sarah runs continuously as a `systemd --user` service, reasoning autonomously, holding a live screen/hive/tool loop, and persisting her own state across restarts. This is no longer a design doc — see Architecture above for what's actually wired up versus still planned.
+Reasoning providers are infrastructure, not identity.
 
----
+### 🧩 Actions are typed capabilities
 
-## 📜 License
+System control, browser automation, media, Git, containers, networking, memory, goals, avatars, and other behavior enter through shared tools and explicit runtime interfaces.
 
-This project is private and not publicly licensed for distribution.
+### 🔒 Safety is enforced in code
 
----
+Unattended autonomy is observe/suggest only. Privileged mutations require a persistent operator-approved action proposal matching the exact tool and arguments.
 
-## 🙏 Acknowledgements
+### 🌐 One identity, many surfaces
 
-- Inspired by Jarvis (Marvel), Cortana (Halo), and other sci-fi AI companions.
-- Built using modern LLM frameworks (Ollama, llama.cpp), Playwright, local speech models (faster-whisper, Piper, openWakeWord), and automation tooling.
-- `modules/soul/` ported and adapted from the [Autumn's Dungeoneering](../Autumns-Dungeoneering) Godot project's NPC soul/stat system.
+Desktop, Discord, voice, hive nodes, avatars, and future robots are intended to be bodies or interfaces around the same persistent character, not separate chatbot copies.
 
 ---
 
-## 🌱 Future Roadmap (Examples)
+## Agent Hierarchy
 
-- Hobby/opinion-forming behavior loop (see above) as the first real use of persistent identity state.
-- Typed relationship/episodic memory beyond the current flat key-value fallback.
-- Tama's own canonical identity manifest (`agents/tama_identity.md`) and real Discord live-testing.
-- Full multi-machine hive command dispatch (a "core" node directing peers, not just polling them).
-- Dynamic multi-tasking and parallel agent coordination.
-- Expand the robotics contract to additional sensors, actuators, and android
-  body adapters.
+S.A.R.A.H. is the **only top-level agent**.
+
+Everything else falls beneath her:
+
+```text
+S.A.R.A.H.
+├── child processes / delegated workers
+├── tools
+├── browser and system interfaces
+├── Discord / voice / other communication surfaces
+├── desktop avatars
+├── hive nodes
+└── robotic bodies
+```
+
+Children may reason locally, hold task-specific context, or present distinct personalities where useful, but they do not possess equal architectural authority. They exist because Sarah created, invoked, or controls them.
+
+The system is therefore hierarchical, not a federation of independent agents.
 
 ---
 
-## ❤️ Final Note
+## Architecture
 
-S.A.R.A.H is not just a tool — she is an ongoing experiment in creating a unified digital consciousness that can accompany you into the future.
+### `modules/soul/` — Character continuity
+
+The Soul tree contains S.A.R.A.H.'s persistent state and simulation, plus any explicitly subordinate child state she owns or manages.
+
+#### `identity_state/`
+
+Persistent identity data such as:
+
+- opinions
+- interests
+- dislikes
+- relationship notes
+- simple identity goals
+
+State may be partitioned by identifiers for implementation and child isolation, but those partitions do not imply multiple top-level agents. S.A.R.A.H. remains the parent authority.
+
+Typed operations such as `form_opinion` and `add_interest` mutate this state. The model does not own or rewrite the entire identity blob.
+
+#### `mental_state/`
+
+A live needs/drives simulation including values such as hunger, fatigue, boredom, stress, and curiosity.
+
+Mental state ticks during the character runtime loop and is persisted periodically so process restarts do not reset the character to a blank internal condition.
+
+Sarah's configured personality traits are mirrored into the mental-state model so personality and simulated drives are not disconnected systems.
+
+#### `goals/`
+
+A separate versioned goal lifecycle supports explicit autonomous goals, including history and states such as proposed, active, blocked, awaiting approval, completed, and abandoned.
+
+Goal selection is deterministic from the relevant stored state rather than left entirely to free-form model improvisation.
+
+#### `action_proposals/`
+
+Privileged mutation is protected by a persistent approval system.
+
+Approval-required actions are stored with:
+
+- exact tool name
+- exact sanitized arguments
+- rationale and evidence
+- risk category
+- optional person/caller binding
+- optional goal binding
+- expiry
+- operator decision
+- execution outcome
+- append-only audit history
+
+Approved proposals are single-use and character-scoped. One approval cannot silently authorize a different action later.
+
+#### `experience/` and `reflection_log/`
+
+Executed action outcomes can become persistent experience.
+
+The outcome interpreter can:
+
+- record action results;
+- update linked goal state;
+- apply bounded mental-state effects;
+- enrich episodic memory;
+- write reflection/outcome entries.
+
+This makes actions part of Sarah's continuity instead of disappearing after a tool call.
 
 ---
+
+## Memory
+
+S.A.R.A.H. now has several distinct memory layers rather than one generic memory bucket.
+
+### Persistent memory
+
+Simple durable key/value memory.
+
+### Episodic memory
+
+Stores character experiences/events.
+
+### Semantic memory
+
+Stores structured facts with revision/supersession behavior and character/person scoping.
+
+### Person profiles
+
+Stores durable information about specific people while respecting trusted caller identity boundaries.
+
+### Reflection log
+
+Stores autonomous thoughts, suggestions, and interpreted action outcomes.
+
+These systems may use scoped identifiers for isolation, but they remain subordinate to S.A.R.A.H.'s single-agent architecture.
+
+---
+
+## Context and Reasoning
+
+### `modules/context.py`
+
+Builds the world/context seen by the reasoning model.
+
+It can compose:
+
+- character identity
+- mental state
+- goals/tasks
+- relevant facts
+- recent autonomous experiences
+- available perception
+
+The goal is to expose meaningful state without dumping raw internal storage or sensitive identifiers into model-visible text.
+
+### `agents/{character_id}_identity.md`
+
+Defines voice, presentation, and behavioral framing.
+
+This is **not** the database for learned facts.
+
+```text
+voice/style          → agents/*_identity.md
+persistent identity  → modules/soul/identity_state/
+mental simulation    → modules/soul/mental_state/
+goals                → modules/soul/goals/
+memory/experience    → modules/memory/ + related soul stores
+```
+
+### `modules/tools/tool_orchestrator.py`
+
+Runs the structured reasoning/tool loop.
+
+It:
+
+1. binds the active character;
+2. loads the character identity manifest;
+3. exposes allowed tools;
+4. asks the model for a tool call or final response;
+5. enforces allowlists and autonomous policy;
+6. enforces action-proposal approval for privileged tools;
+7. executes validated tools;
+8. feeds results back into reasoning.
+
+The orchestrator supports trusted interactive operation, restricted external surfaces, and observe-only autonomous reflection.
+
+---
+
+## Autonomous Reflection
+
+`modules/reflection/ReflectionScheduler` separates frequent perception from slower autonomous reasoning.
+
+The character runtime currently schedules:
+
+- perception on a short interval;
+- reflection on a longer interval;
+- at most one reflection task in flight.
+
+Autonomous reflection is intentionally restricted.
+
+Sarah may inspect state, reason, choose goals, and suggest actions, but unattended reasoning does not receive unrestricted mutation privileges.
+
+This is a code-level policy, not merely a sentence in the system prompt.
+
+---
+
+## Tools and System Control
+
+The shared tool registry exposes capabilities including:
+
+- shell/system inspection
+- package management
+- systemd services
+- Docker/Podman
+- filesystem/change inspection
+- clipboard
+- desktop notifications
+- media control
+- journal/log inspection
+- window enumeration
+- Git
+- browser automation
+- remote hive operations
+- persistent memory
+- episodic and semantic memory
+- person profiles
+- explicit goals
+- identity operations
+- avatar control
+
+Read-only, ordinary, and approval-required tools are classified separately.
+
+Git push is deliberately not exposed as an autonomous capability.
+
+---
+
+## Perception and Browser
+
+Implemented foundations include:
+
+- continuous screen awareness;
+- local preprocessing/redaction before cloud reasoning where applicable;
+- Playwright + Firefox browser control;
+- accessibility-tree reading;
+- network logging;
+- tracing;
+- dedicated browser state/profile handling.
+
+Browser mutation remains distinct from browser observation in the action-risk model.
+
+---
+
+## Hivemind Networking
+
+`modules/hive/` provides the multi-machine foundation.
+
+Current pieces include:
+
+- mDNS discovery;
+- authenticated peer protocol;
+- peer registry;
+- node roles/configuration;
+- remote system/screen information;
+- SSH-based remote actions;
+- rsync-based file transfer.
+
+The long-term goal is one persistent S.A.R.A.H. operating through multiple machines, child processes, and bodies. Those nodes remain subordinate extensions of the parent intelligence, not peer agents.
+
+---
+
+## Avatars
+
+The Godot 4 desktop avatar is a body/presentation layer, not a second agent.
+
+`modules/avatar/avatar_bridge.py` provides a localhost TCP bridge between the Python character runtime and Godot.
+
+Character-scoped ports allow independent avatar instances.
+
+Available actions include movement, speech, and animation commands.
+
+Tama currently provides the primary implemented avatar skin.
+
+---
+
+## Discord
+
+The Discord bot is a communication surface controlled by S.A.R.A.H., not a separate agent or peer intelligence.
+
+Discord is treated as an untrusted external surface and receives restricted tools.
+
+Trusted caller identity is bound by the application boundary rather than accepted from model-generated text.
+
+---
+
+## Voice
+
+The voice pipeline supports hands-free interaction through local components such as:
+
+```text
+wake word → speech-to-text → reasoning → text-to-speech
+```
+
+The project currently uses components including openWakeWord, faster-whisper, and Piper.
+
+---
+
+## Robotics
+
+Physical embodiment is opt-in and disabled by default.
+
+The robotics foundation includes:
+
+- deterministic simulation;
+- navigation and obstacles;
+- charging;
+- sensors;
+- collision refusal;
+- action telemetry;
+- mock transport;
+- Arduino-compatible hardware adapter;
+- acknowledgement-gated hardware state updates;
+- safe shutdown behavior.
+
+The LLM may plan or request an action, but deterministic code remains responsible for enforcing physical constraints.
+
+The Godot avatar and physical robotics systems intentionally remain separate body types.
+
+---
+
+## Game-System Heritage
+
+Parts of `modules/soul/` descend from the NPC Soul/stat architecture in **Autumn's Dungeoneering**.
+
+The existing serialization patterns such as `to_dict()` / `from_dict()` made that code unusually well suited to becoming persistent character infrastructure.
+
+That heritage led to a larger experiment:
+
+> What happens when a character simulation stops being an NPC subsystem and becomes the persistent entity operating the computer?
+
+---
+
+## Privacy and Trust
+
+S.A.R.A.H. is designed to remain self-owned and locally controlled where practical.
+
+Important boundaries include:
+
+- local screen redaction before cloud reasoning;
+- code-enforced tool allowlists;
+- persistent action approval for privileged changes;
+- person/caller isolation;
+- character isolation;
+- authenticated hive peers;
+- hardware disabled by default.
+
+Prompt instructions are never treated as sufficient protection for privileged capabilities.
+
+---
+
+## Current Status
+
+🟢 **Actively running.**
+
+Sarah currently runs as a persistent user service with:
+
+- continuous character runtime;
+- mental-state ticking and persistence;
+- screen perception;
+- autonomous reflection scheduling;
+- persistent goals;
+- episodic/semantic memory;
+- person profiles;
+- action proposals and approval gating;
+- interpreted action outcomes;
+- system/browser tools;
+- hive networking;
+- voice;
+- avatar integration;
+- opt-in robotics foundations.
+
+The project is no longer primarily a design document.
+
+---
+
+## Testing
+
+The repository has a substantial `unittest` suite covering:
+
+- action proposal lifecycle and approval gates;
+- autonomous tool restrictions;
+- context composition;
+- episodic memory;
+- semantic memory;
+- person/caller binding;
+- person profiles;
+- goal lifecycle and selection;
+- memory isolation;
+- reflection outcomes and scheduling;
+- robotics;
+- LLM runtime behavior.
+
+Broad test command:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+---
+
+## Private Development
+
+This repository is private and intended for personal development.
+
+No public installation or contribution process is currently maintained.
+
+---
+
+## Roadmap
+
+Current directions include:
+
+- richer autonomous hobby/opinion formation;
+- expanded typed relationship and experience modeling;
+- Tama's canonical identity manifest;
+- stronger central hive coordination;
+- parallel task/goal execution;
+- additional sensors, actuators, and robotic bodies;
+- deeper continuity between experience, goals, relationships, and self-directed interests.
+
+---
+
+## Core Principle
+
+S.A.R.A.H. is an experiment in persistent digital character architecture.
+
+The goal is not to write a sufficiently elaborate prompt that impersonates Sarah.
+
+The goal is to make **Sarah's continuity exist outside the prompt**, so models, interfaces, machines, children, and bodies can change without replacing the single agent who controls them.
