@@ -57,7 +57,17 @@ class HiveDiscovery:
             port=self.port,
             properties={"node": self.node_name},
         )
-        await self.aiozc.async_register_service(self.service_info)
+        # allow_name_change=True: if this node's mDNS name is already claimed
+        # (e.g. a previous instance of this same service was killed without
+        # unregistering its record, so the lease is still live on the network),
+        # zeroconf renames the conflicting record instead of raising
+        # NonUniqueNameException. Without it, an unclean restart of sarah.service
+        # crashed the whole daemon at startup with an unhandled exception, and
+        # systemd restarted it straight into the same conflict (a crash loop).
+        # The advertised node name is carried in the TXT `node` property, which
+        # is what peer verification reads - not the mDNS record label - so a
+        # rename is harmless to hive identity.
+        await self.aiozc.async_register_service(self.service_info, allow_name_change=True)
         self.browser = AsyncServiceBrowser(
             self.aiozc.zeroconf, SERVICE_TYPE, handlers=[self._on_change]
         )
