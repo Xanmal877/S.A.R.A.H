@@ -5,6 +5,7 @@
 import asyncio
 
 from mainAgent import SarahStateMachine
+from modules.watchdog import Watchdog
 from modules.avatar import AVATAR_PORTS, DEFAULT_PORT, AvatarBridge, register_bridge
 from modules.characterManager import CharacterManager
 from modules.personalityModule import PersonalityModule
@@ -31,6 +32,13 @@ class BaseCharacter:
         # State tracking
         self.isProcessingState = False
         self.currentTask = ""
+
+        # Liveness guard for the autonomous loop (modules/watchdog.py). Armed in
+        # Run() once every subsystem is up, kicked once per completed tick, and
+        # disarmed on the way out. This is what turns a silent in-process wedge
+        # (live PID, dead loop, systemd satisfied) into a systemd restart
+        # instead of a daemon that simply stops existing.
+        self.watchdog = Watchdog()
         
         # Initialize
         self.SetupCharacter()
@@ -162,6 +170,11 @@ class BaseCharacter:
         # Set up the reflection scheduler (perception at 1s, reflection at 60s default)
         self.stateMachine._setup_scheduler()
 
+        # Every subsystem is up: start the liveness clock. A stall in the loop
+        # below past the watchdog timeout dumps all thread stacks, records the
+        # incident, and exits with SERVICE_EXIT_CODE so systemd respawns us.
+        self.watchdog.arm()
+
         seconds_since_save = 0.0
         try:
             while True:
@@ -193,9 +206,27 @@ class BaseCharacter:
                     save_mental_state(self.soul.mental_state, self.character_id)
                     seconds_since_save = 0.0
 
+                # Proof of life for the watchdog, plus the on-disk heartbeat an
+                # external monitor reads (~/.sarah/heartbeat.json). The write is
+                # rate-limited inside kick() (default every 15s) - this is not a
+                # filesystem write per second.
+                heartbeat = {
+                    "character": self.character_id,
+                    "task": self.currentTask,
+                }
+                scheduler = self.stateMachine.reflection_scheduler
+                if scheduler is not None:
+                    diag = scheduler.get_diagnostics()
+                    heartbeat["reflection_in_flight"] = diag["reflection_task_in_flight"]
+                    age = diag["reflection_seconds_since_last"]
+                    if age < float("inf"):
+                        heartbeat["reflection_age_s"] = round(age, 1)
+                self.watchdog.kick(heartbeat)
+
                 # Wait before next cycle
                 await asyncio.sleep(1.0)
         finally:
+            self.watchdog.disarm()
             await self._stop_robotics()
             # Safely shut down the reflection scheduler
             if self.stateMachine.reflection_scheduler is not None:
