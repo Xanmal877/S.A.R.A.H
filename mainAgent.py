@@ -1,10 +1,24 @@
 # ===============================
-# MAIN AGENT STATE MACHINE (Direct Port)
+# CHARACTER RUNTIME
 # ===============================
+#
+# Historically this module also defined the old Autumn's-Dungeoneering state
+# machine: a ``StateMachine`` base plus ``IdleState`` / ``WorkState`` /
+# ``ExploreState`` classes and the ``_probabilistic_decision`` fallback that
+# picked between them at random.
+#
+# None of that is reachable from the live runtime. ``agents/baseAgent.Run()``
+# drives ``StateMachineLogic()`` below, which does perception + reflection
+# scheduling; the Idle/Work/Explore handlers were constructed in ``__init__``
+# and then never invoked by any code path. They were dead weight that read like
+# live behaviour - the exact class of defect this project keeps growing - so
+# they were removed (along with ``stateMachine.py``).
+#
+# ``SarahStateMachine`` keeps only the parts the runtime actually uses, and no
+# longer inherits from the deleted ``StateMachine`` base.
 
 import asyncio
 import logging
-import random
 from typing import Optional
 
 from modules.llmClient import LLMClient
@@ -12,18 +26,32 @@ from modules.observationModule import ObservationModule
 from modules.perception import ScreenWatcher
 from modules.personaMapper import PersonaMapper
 from modules.reflection import ReflectionScheduler
-from stateMachine import ExploreState, IdleState, StateMachine, WorkState
 
 logger = logging.getLogger("SarahStateMachine")
 
 
-class SarahStateMachine(StateMachine):
+class SarahStateMachine:
+    """The character runtime's autonomous driver.
+
+    Two responsibilities, both live:
+
+    1. Own the per-character cognitive services (LLM client, persona mapper,
+       observation module, local screen watcher).
+    2. ``StateMachineLogic()`` - called once per 1s tick by
+       ``BaseCharacter.Run()`` - tick the reflection scheduler, which gates
+       perception (short interval) and reflection (longer interval) and runs
+       reflection in the background (at most one in flight).
+
+    The attribute name ``stateMachine`` on ``BaseCharacter`` is what the rest of
+    the runtime resolves this object by (see ``agents/baseAgent.py``), so it
+    stays even though the class is no longer a state machine in the old sense.
+    """
+
     def __init__(self, agent=None):
-        super().__init__(agent)
-        self.idleState = IdleState(agent)
-        self.workState = WorkState(agent)
-        self.exploreState = ExploreState(agent)
-        
+        self.agent = agent
+        self.currentState = None
+        self.isProcessingState = False
+
         # LLM Integration Modules
         self.llm_client = LLMClient.from_node_config()
         self.persona_mapper = PersonaMapper()
@@ -39,67 +67,23 @@ class SarahStateMachine(StateMachine):
 
         # Set by BaseCharacter._start_hive() only on role="core" nodes.
         self.hive_core = None
-        
+
         # Reflection scheduler: coordinates perception and reflection intervals
         # Will be created in _setup_scheduler() after agent is initialized
         self.reflection_scheduler: Optional[ReflectionScheduler] = None
         self.orchestrator_timeout_s = 120.0  # configurable timeout for LLM processing
 
-    async def _probabilistic_decision(self):
-        """
-        Original probabilistic state selection based on personality traits.
-        Used as a fallback when the LLM fails.
-        """
-        baseIdleChance = 10
-        baseWorkChance = 40
-        baseExploreChance = 50
-
-        riskModifier = self.agent.personalityModule.GetPersonalityModifier("risk_taking")
-        planningModifier = self.agent.personalityModule.GetPersonalityModifier("planning")
-        
-        energyInfluence = (self.agent.personalityModule.energy - 50) * 0.2
-        baseExploreChance += energyInfluence
-        baseIdleChance -= energyInfluence
-        
-        riskInfluence = (riskModifier - 0.5) * 20
-        baseExploreChance += riskInfluence
-        baseIdleChance -= riskInfluence * 0.5
-        
-        planningInfluence = (planningModifier - 0.5) * 15
-        baseWorkChance += planningInfluence
-        baseIdleChance -= planningInfluence
-
-        baseIdleChance = max(10, min(baseIdleChance, 60))
-        baseWorkChance = max(15, min(baseWorkChance, 50))
-        baseExploreChance = max(20, min(baseExploreChance, 70))
-
-        total = baseIdleChance + baseWorkChance + baseExploreChance
-        idleThreshold = (baseIdleChance / total) * 100
-        workThreshold = idleThreshold + (baseWorkChance / total) * 100
-        
-        local_rand = random.randint(1, 100)
-        
-        if local_rand <= idleThreshold:
-            self.SetTask("Idle")
-            await self.idleState.HandleState()
-        elif local_rand <= workThreshold:
-            self.SetTask("Work") 
-            await self.workState.HandleState()
-        else:
-            self.SetTask("Explore")
-            await self.exploreState.HandleState()
-
     def _setup_scheduler(self):
         """Initialize the reflection scheduler after agent is ready."""
         if self.reflection_scheduler is not None:
             return  # already set up
-        
+
         async def perception_fn():
             await self.screen_watcher.maybe_capture()
-        
+
         async def reflection_fn():
             await self._do_reflection()
-        
+
         self.reflection_scheduler = ReflectionScheduler(
             perception_fn=perception_fn,
             reflection_fn=reflection_fn,
@@ -110,15 +94,15 @@ class SarahStateMachine(StateMachine):
         # Trigger first perception/reflection immediately
         self.reflection_scheduler._perception_last_s = -float('inf')
         self.reflection_scheduler._reflection_last_s = -float('inf')
-    
+
     async def StateMachineLogic(self, scheduler: Optional[ReflectionScheduler] = None):
         """
         Main state machine logic. Optionally accepts a scheduler for testing.
         If no scheduler provided, uses self.reflection_scheduler (created on first call).
-        
+
         Do NOT call screen_watcher.maybe_capture directly - the scheduler handles that.
         """
-        if self.agent.isProcessingState:
+        if self.agent is not None and getattr(self.agent, "isProcessingState", False):
             return
 
         try:
@@ -127,11 +111,11 @@ class SarahStateMachine(StateMachine):
                 if self.reflection_scheduler is None:
                     self._setup_scheduler()
                 scheduler = self.reflection_scheduler
-            
+
             # Perception is gated by the scheduler; this returns immediately
             # if the interval hasn't elapsed (default 1s)
             await scheduler.maybe_perceive()
-            
+
             # Reflection runs in background on its own interval (default 60s)
             # if no task is already in flight. This returns immediately if gated.
             await scheduler.maybe_reflect()
@@ -143,7 +127,7 @@ class SarahStateMachine(StateMachine):
             # it in the logs so a recurring failure is visible and debuggable
             # rather than silently swallowed.
             logger.exception("Error in autonomous StateMachineLogic: %s", e)
-    
+
     async def _do_reflection(self):
         """Background reflection task: aggregate context and process with orchestrator."""
         try:
@@ -218,7 +202,7 @@ class SarahStateMachine(StateMachine):
                 orchestrator.process_request(prompt, system_context=world_state),
                 timeout=self.orchestrator_timeout_s,
             )
-            
+
             # De-duplicate suggestions: only log if not recently seen
             scheduler = self.reflection_scheduler
             if scheduler and not scheduler.is_duplicate_suggestion(response_text):
@@ -266,4 +250,3 @@ class SarahStateMachine(StateMachine):
             )
         except Exception as e:  # noqa: BLE001 - journal write must never break the loop
             logger.warning("Could not persist autonomous reflection: %s", e)
-
