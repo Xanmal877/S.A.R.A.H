@@ -15,7 +15,7 @@ Key behaviors:
 import asyncio
 import logging
 import time
-from typing import Callable, Optional
+from typing import Awaitable, Callable, Optional
 
 logger = logging.getLogger("ReflectionScheduler")
 
@@ -41,8 +41,8 @@ class ReflectionScheduler:
     
     def __init__(
         self,
-        perception_fn: Callable[[], asyncio.coroutine],
-        reflection_fn: Callable[[], asyncio.coroutine],
+        perception_fn: Callable[[], Awaitable[None]],
+        reflection_fn: Callable[[], Awaitable[None]],
         perception_interval_s: float = 1.0,
         reflection_interval_s: float = 60.0,
         suggestion_cache_size: int = 50,
