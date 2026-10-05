@@ -193,8 +193,17 @@ class SarahStateMachine:
                 f"goal was selected, simply observe generally. If you spot "
                 f"something worth reporting to the operator, say so clearly. You "
                 f"do not take action on your own and you do not create, modify, "
-                f"or complete goals; you only notice and suggest. What have you "
-                f"observed / what next step do you suggest for the goal?"
+                f"or complete goals; you only notice and suggest.\n\n"
+                f"If the next step needs something done that you may not do "
+                f"yourself (running a command, changing a service or package, "
+                f"writing state, or creating/updating a goal), do not merely "
+                f"narrate it - file it with propose_action (the exact tool, its "
+                f"exact args, why, and what you inspected). Proposing is a "
+                f"request, not an action: it cannot execute anything, and filing "
+                f"one is how a suggestion actually reaches the operator instead "
+                f"of scrolling past in a journal. Check list_pending_actions "
+                f"first so you do not file the same proposal twice. What have "
+                f"you observed / what next step do you suggest for the goal?"
             )
 
             # Wrap orchestrator processing in asyncio.wait_for with configurable timeout
