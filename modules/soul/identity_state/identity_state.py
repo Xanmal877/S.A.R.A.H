@@ -88,10 +88,23 @@ class IdentityState:
             self._save()
 
     def add_relationship_note(self, note: str):
+        # Deduplicate: re-recording the same note used to append a fresh row
+        # every time, which is how the live identity file accumulated 57
+        # identical "remember our running joke" entries. An identical existing
+        # note is left as-is (no timestamp churn) rather than duplicated.
+        if any(isinstance(n, dict) and n.get("note") == note for n in self.relationship_notes):
+            return
         self.relationship_notes.append({"note": note, "timestamp": datetime.now().isoformat()})
         self._save()
 
     def add_goal(self, goal: str):
+        # Deduplicate: an identical *active* goal is not appended again. This is
+        # the same defect class as the relationship notes - the legacy list grew
+        # 68 identical "Ship phase 1" rows because every call appended blindly.
+        # The explicit goal store (goals.json) is the real goal authority; this
+        # legacy list is a compatibility fallback and must not balloon.
+        if any(g.get("goal") == goal and g.get("status") == "active" for g in self.goals):
+            return
         self.goals.append({"goal": goal, "status": "active", "created_at": datetime.now().isoformat()})
         self._save()
 
