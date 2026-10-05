@@ -6,6 +6,13 @@ import asyncio
 
 from agents.sarah import SarahAgent
 from modules.llmClient import LLMClient
+# Register the tool layer before the loop starts. modules/tools/init_tools.py
+# auto-registers all 88 tools on import - but nothing in the daemon's import
+# chain ever imported it, so the daemon's registry was EMPTY and every tool
+# call the autonomous loop made failed with "Tool not found in registry."
+# She could observe nothing and act on nothing. (The CLI and voice
+# entrypoints call register_all_tools() explicitly; the daemon never did.)
+import modules.tools.init_tools  # noqa: F401 - import side effect registers all tools
 
 
 async def main():
