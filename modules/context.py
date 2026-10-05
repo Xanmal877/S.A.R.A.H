@@ -40,10 +40,28 @@ def _active_goals_context(person_id=None, character_id=None) -> str:
     except Exception:  # noqa: BLE001 - goal recall must never break context
         section = ""
     # Legacy fallback: only surfaced when the explicit store has nothing live.
+    # Bounded and deduplicated by title - the legacy identity list accumulated
+    # years of duplicate rows (the same goal re-appended hundreds of times), so
+    # rendering it raw produced "an unreadable wall of dozens of duplicated
+    # 'Ship phase 1' rows buried under legacy entries" (Sarah's own words, in
+    # her reflection journal). Capped at FALLBACK_LIMIT distinct titles so a
+    # polluted legacy store can never dominate the model's context again.
+    FALLBACK_LIMIT = 8
     if not section:
         try:
             identity = get_identity_state(cid)
-            legacy = [g["goal"] for g in identity.goals if g.get("status") == "active"]
+            seen = set()
+            legacy = []
+            for g in identity.goals:
+                if g.get("status") != "active":
+                    continue
+                title = g.get("goal")
+                if not title or title in seen:
+                    continue
+                seen.add(title)
+                legacy.append(title)
+                if len(legacy) >= FALLBACK_LIMIT:
+                    break
             if legacy:
                 return "- " + "\n- ".join(legacy)
         except Exception:  # noqa: BLE001

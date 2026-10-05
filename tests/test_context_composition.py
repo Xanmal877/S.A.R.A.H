@@ -2,7 +2,10 @@ import tempfile
 import unittest
 
 from modules.context import assemble_autonomous_context, assemble_character_context
-from modules.soul.identity_state.identity_state import active_character_id
+from modules.soul.identity_state.identity_state import (
+    _clear_identity_state_cache,
+    active_character_id,
+)
 from modules.soul.mental_state.mental_state import MentalState
 from modules.soul.soul import Soul
 
@@ -34,6 +37,10 @@ class ContextCompositionTests(unittest.TestCase):
         import os
         self._old = os.environ.get("SARAH_STATE_DIR")
         os.environ["SARAH_STATE_DIR"] = self._tmp.name
+        # Drop identity-state instances pinned before the redirect - without
+        # this, the identity tools below would write into the live ~/.sarah
+        # file instead of this temp dir (the historical pollution bug).
+        _clear_identity_state_cache()
         active_character_id.set("sarah")
 
     def setUp(self):

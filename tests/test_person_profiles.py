@@ -7,7 +7,10 @@ from modules.soul.person_profiles.person_profile import (
     PersonProfileStore,
 )
 from modules.soul.person_profiles import _clear_person_profile_store_cache
-from modules.soul.identity_state.identity_state import active_character_id
+from modules.soul.identity_state.identity_state import (
+    _clear_identity_state_cache,
+    active_character_id,
+)
 
 
 class PersonProfileStoreTests(unittest.TestCase):
@@ -27,6 +30,7 @@ class PersonProfileStoreTests(unittest.TestCase):
         # their construction-time storage_path, which would otherwise leak
         # across redirected temp dirs between test methods.
         _clear_person_profile_store_cache()
+        _clear_identity_state_cache()
         active_character_id.set("sarah")
 
     def tearDown(self):
@@ -150,6 +154,7 @@ class PersonProfileToolTests(unittest.TestCase):
         self._old = os.environ.get("SARAH_STATE_DIR")
         os.environ["SARAH_STATE_DIR"] = self._tmpdir.name
         _clear_person_profile_store_cache()
+        _clear_identity_state_cache()
         active_character_id.set("sarah")
 
     def tearDown(self):

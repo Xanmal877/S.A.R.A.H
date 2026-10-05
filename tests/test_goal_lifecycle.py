@@ -6,6 +6,7 @@ import unittest
 
 from modules.context import assemble_character_context
 from modules.soul.goals import _clear_goal_store_cache
+from modules.soul.identity_state.identity_state import _clear_identity_state_cache
 from modules.soul.goals.goals import (
     GOALS_VERSION,
     GoalStore,
@@ -30,6 +31,7 @@ class GoalStoreTests(unittest.TestCase):
         self._old = os.environ.get("SARAH_STATE_DIR")
         os.environ["SARAH_STATE_DIR"] = self._tmpdir.name
         _clear_goal_store_cache()
+        _clear_identity_state_cache()
         self._clear_person_cache()
         active_character_id.set("sarah")
         active_person_id.set(None)
@@ -189,6 +191,7 @@ class GoalToolTests(unittest.TestCase):
         self._old = os.environ.get("SARAH_STATE_DIR")
         os.environ["SARAH_STATE_DIR"] = self._tmpdir.name
         _clear_goal_store_cache()
+        _clear_identity_state_cache()
         self._clear_person_cache()
         active_character_id.set("sarah")
         active_person_id.set(None)
@@ -319,6 +322,7 @@ class GoalContextTests(unittest.TestCase):
         self._old = os.environ.get("SARAH_STATE_DIR")
         os.environ["SARAH_STATE_DIR"] = self._tmpdir.name
         _clear_goal_store_cache()
+        _clear_identity_state_cache()
         self._clear_person_cache()
         active_character_id.set("sarah")
         active_person_id.set(None)

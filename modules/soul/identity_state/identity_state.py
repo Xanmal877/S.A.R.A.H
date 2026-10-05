@@ -5,10 +5,24 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from modules.memory.json_file_store import state_dir
+
 logger = logging.getLogger("IdentityState")
 
 def _default_state_path(character_id: str) -> str:
-    return os.path.expanduser(f"~/.sarah/state/{character_id}/identity_state.json")
+    """Path to this character's identity file.
+
+    Routed through modules.memory.json_file_store.state_dir so it honors
+    SARAH_STATE_DIR exactly like every other character-scoped store (goals,
+    person_profiles, reflection_log, episodic/semantic memory,
+    action_proposals). This previously hardcoded ``~/.sarah``, so a test that
+    redirected SARAH_STATE_DIR to a temp dir and then called the identity tools
+    (add_goal / form_opinion / add_relationship_note) still wrote into the live
+    ~/.sarah identity file. That was the source of the historical test-string
+    pollution in Sarah's real identity state ("Ship phase 1", "remember our
+    running joke", "astronomy", "python -> the right tool").
+    """
+    return os.path.join(state_dir(character_id), "identity_state.json")
 
 
 class IdentityState:
@@ -150,6 +164,19 @@ def get_identity_state(character_id: str = "sarah") -> "IdentityState":
     if character_id not in _identity_states:
         _identity_states[character_id] = IdentityState(character_id=character_id)
     return _identity_states[character_id]
+
+
+def _clear_identity_state_cache():
+    """Drop cached IdentityState instances (tests only).
+
+    Each IdentityState pins a ``storage_path`` at construction, so redirecting
+    SARAH_STATE_DIR to a fresh temp dir requires invalidating the cache -
+    otherwise a later case reuses an instance built against the previous (or
+    the real) state root and silently writes there. Mirrors the equivalent
+    clear helpers in goals / person_profiles / reflection_log / episodic /
+    semantic / action_proposals.
+    """
+    _identity_states.clear()
 
 
 # Backward-compatible singleton - Sarah's identity, sourced from the same
