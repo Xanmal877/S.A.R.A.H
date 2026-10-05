@@ -10,6 +10,76 @@ from modules.tools.tool_registry import registry
 
 logger = logging.getLogger("ToolOrchestrator")
 
+# Bare control characters that are valid inside a Python string but illegal
+# inside a JSON *string literal*. The escaped form we substitute is what the
+# model should have emitted in the first place.
+_CONTROL_ESCAPES = {
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+    "\b": "\\b",
+    "\f": "\\f",
+}
+
+
+def _escape_bare_control_chars(text: str) -> str:
+    """Escape raw control characters that appear *inside* JSON string literals.
+
+    Only characters between an opening and closing `"` are touched, and only
+    ones that are illegal in JSON strings - so ordinary text, structural
+    whitespace between tokens, and already-escaped sequences are left exactly
+    as they were. This is a lossless repair (it restores the two-character
+    escape the model omitted); it never drops, reorders, or invents content.
+    """
+    out = []
+    in_string = False
+    escaped = False
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            elif ch in _CONTROL_ESCAPES:
+                out.append(_CONTROL_ESCAPES[ch])
+                continue
+            elif ord(ch) < 0x20:
+                out.append(f"\\u{ord(ch):04x}")
+                continue
+        elif ch == '"':
+            in_string = True
+        out.append(ch)
+    return "".join(out)
+
+
+def _parse_model_json(response_text: str):
+    """Decode the first complete JSON object in a model response.
+
+    Tries the strict decoder first (fast path), then a single bounded repair
+    that escapes bare control characters inside string literals. The repair
+    exists because the cloud reasoning model intermittently emits a literal
+    newline inside `final_answer` instead of the escaped `\\n`, which is invalid
+    JSON and used to kill the entire reasoning turn ("Invalid control character
+    at ..."). A genuine parse failure still raises json.JSONDecodeError - it is
+    never swallowed, and nothing is ever fabricated to paper over it.
+    """
+    start = response_text.find("{")
+    if start == -1:
+        raise json.JSONDecodeError("no JSON object found in response", response_text, 0)
+    try:
+        decision, _end = json.JSONDecoder().raw_decode(response_text, start)
+        return decision
+    except json.JSONDecodeError:
+        repaired = _escape_bare_control_chars(response_text)
+        if repaired == response_text:
+            raise  # nothing repairable - surface the real parse failure
+        decision, _end = json.JSONDecoder().raw_decode(repaired, start)
+        logger.info("Repaired bare control characters inside a model JSON string.")
+        return decision
+
+
 class ToolOrchestrator:
     """
     Handles the multi-turn reasoning loop:
@@ -143,6 +213,11 @@ class ToolOrchestrator:
                     f'{{"tool": "tool_name", "args": {{"arg_name": "value"}}}}'
                     f"\nWhen you have the final answer or have completed the task, respond with:\n"
                     f'{{"final_answer": "Your response to the user"}}'
+                    f"\n\nOUTPUT FORMAT (strict): reply with the single JSON object and nothing "
+                    f"else. It must be valid JSON on ONE logical line - there must be no raw "
+                    f"line breaks inside any string value. Write a newline inside a string as "
+                    f"the two characters \\n (escaped), never as a literal line break. "
+                    f"Unescaped control characters make the JSON unparseable and the turn is lost."
                 )
             },
             {"role": "user", "content": f"Context: {system_context}\n\nRequest: {user_request}"}
@@ -161,11 +236,11 @@ class ToolOrchestrator:
                 # non-greedy \{.*?\} regex, both break as soon as the model
                 # emits a nested object like {"tool": "x", "args": {...}} or
                 # trailing prose/a second JSON blob after the real answer).
-                start_idx = response_text.find('{')
-                if start_idx == -1:
-                    return f"LLM failed to provide structured response: {response_text}"
+                # _parse_model_json also repairs the one known malformed-output
+                # case (bare control chars inside a string) without hiding a
+                # real parse failure.
                 try:
-                    decision, _end = json.JSONDecoder().raw_decode(response_text, start_idx)
+                    decision = _parse_model_json(response_text)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Could not parse LLM response as JSON: {e}\nRaw: {response_text!r}")
                     return f"LLM failed to provide valid structured response: {response_text}"
