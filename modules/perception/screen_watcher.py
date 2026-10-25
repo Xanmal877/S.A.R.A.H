@@ -36,6 +36,38 @@ class ScreenWatcher:
     captures the full screen and has a local vision model describe (and
     redact) it, on its own cadence (default every 7s, independent of the
     1s agent tick), so ObservationModule can fold what's on-screen into
+def _spectacle_instance_running() -> bool:
+    """True when a Spectacle process is already up - i.e. the user's window.
+
+    ``spectacle -b`` does NOT capture independently while an instance is running: the
+    invocation is DBus-forwarded to that instance, which takes the screenshot and then
+    QUITS. So every capture tick silently closes the open Spectacle window, and the
+    output file lands asynchronously (after the forwarding process already exited 0),
+    which is why the caller sees "produced no file".
+    """
+    try:
+        found = subprocess.run(
+            ("pgrep", "-f", "^/usr/bin/spectacle"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            text=True,
+        ).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        return False
+    for pid in found:
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as fh:
+                argv = fh.read().split(b"\0")
+        except OSError:
+            continue
+        if b"-b" in argv or b"--background" in argv:
+            # A capture in flight (ours) - not the user's window.
+            continue
+        return True
+    return False
+
+
     her world state.
 
     Capture runs an ordered chain of screenshot tools and takes the first
@@ -116,6 +148,12 @@ class ScreenWatcher:
                         data = f.read()
                 except OSError as e:
                     errors.append(f"{program}: {e}")
+                    continue
+                if program == "spectacle" and _spectacle_instance_running():
+                    # Treat a live Spectacle as "this backend is busy": invoking it would
+                    # be forwarded into the user's window and close it. Fall through
+                    # instead - the next tick captures normally once it is closed.
+                    errors.append("spectacle: skipped (an instance is open)")
                     continue
                 if not data:
                     errors.append(f"{program}: empty file")
