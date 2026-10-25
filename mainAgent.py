@@ -62,8 +62,29 @@ class SarahStateMachine:
         # LLMClient.is_local / ScreenWatcher). Only its sanitized text
         # description is ever handed to self.llm_client (which may be the
         # cloud engine) below.
-        self.vision_client = LLMClient(model="gemma4:e4b", api_type="ollama")
-        self.screen_watcher = ScreenWatcher(vision_client=self.vision_client, interval=7.0)
+        # num_ctx is explicit here on purpose: with no value the request
+        # inherits the daemon's OLLAMA_CONTEXT_LENGTH (65536 on this machine),
+        # and describing one screenshot needs a fraction of that (~1 GiB of
+        # context buffers, measured).
+        #
+        # keep_alive=0 is the load-bearing one. This is a 3.3 GiB vision model
+        # on a 12 GB card that Xanmal also renders on, and ANY nonzero
+        # keep_alive that a 7s tick refills leaves it resident indefinitely -
+        # measured at 5.3 GiB held 24/7 before this. Unloading as soon as the
+        # response lands means the card is borrowed for the ~14s a look takes
+        # and free in between, including the whole time nothing is changing.
+        #
+        # interval=60 (was 7): the description feeds a reflection loop that runs
+        # every 60s, so looking 8x a minute bought nothing but residency. The
+        # change gate in ScreenWatcher makes an unchanged screen free; this is
+        # what bounds a busy one. A look measured ~14s.
+        #
+        # CPU (options num_gpu=0) was measured as the zero-VRAM alternative and
+        # rejected: 161s per describe.
+        self.vision_client = LLMClient(
+            model="gemma4:e4b", api_type="ollama", num_ctx=4096, keep_alive=0,
+        )
+        self.screen_watcher = ScreenWatcher(vision_client=self.vision_client, interval=60.0)
 
         # Set by BaseCharacter._start_hive() only on role="core" nodes.
         self.hive_core = None

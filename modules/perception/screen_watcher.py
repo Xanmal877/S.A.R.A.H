@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import difflib
+import io
 import logging
 import os
 import shutil
@@ -8,6 +9,11 @@ import subprocess
 import tempfile
 import time
 from typing import Callable, Optional
+
+try:  # Pillow is installed on this machine. Without it the change gate below
+    from PIL import Image  # degrades to an exact byte compare - see _frame_signature.
+except ImportError:  # pragma: no cover
+    Image = None
 
 logger = logging.getLogger("ScreenWatcher")
 
@@ -30,12 +36,6 @@ REDACTION_PROMPT = (
 )
 
 
-class ScreenWatcher:
-    """
-    Gives Sarah continuous, lightweight visual awareness: periodically
-    captures the full screen and has a local vision model describe (and
-    redact) it, on its own cadence (default every 7s, independent of the
-    1s agent tick), so ObservationModule can fold what's on-screen into
 def _spectacle_instance_running() -> bool:
     """True when a Spectacle process is already up - i.e. the user's window.
 
@@ -68,7 +68,15 @@ def _spectacle_instance_running() -> bool:
     return False
 
 
-    her world state.
+class ScreenWatcher:
+    """
+    Gives Sarah continuous, lightweight visual awareness: periodically
+    captures the full screen and has a local vision model describe (and
+    redact) it, on its own cadence (default every 60s, independent of the
+    1s agent tick), so ObservationModule can fold what's on-screen into
+    her world state. A frame that has not changed enough since the last
+    described one is skipped entirely - see FRAME_CHANGE_THRESHOLD - so the
+    vision model is only loaded when there is something new to look at.
 
     Capture runs an ordered chain of screenshot tools and takes the first
     one that produces a PNG (see CAPTURE_CHAIN). No single tool is assumed
@@ -88,7 +96,17 @@ def _spectacle_instance_running() -> bool:
         ("gnome-screenshot", ("gnome-screenshot", "-f", "{out}")),
     )
 
-    def __init__(self, vision_client, interval: float = 7.0, clock_fn: Optional[Callable[[], float]] = None):
+    # A frame is "new" only when this fraction of a 64x36 greyscale thumbnail
+    # has changed by more than 12 levels. A clock hand or a caret moves too few
+    # cells to count; a new window, a scroll or a video lights up a large part
+    # of the grid. STALE_AFTER_S bounds the other direction: a screen that
+    # changes a little every tick (typing) would otherwise never be re-read, so
+    # she insists on a fresh look at least this often.
+    SIGNATURE_SIZE = (64, 36)
+    FRAME_CHANGE_THRESHOLD = 0.02
+    STALE_AFTER_S = 180.0
+
+    def __init__(self, vision_client, interval: float = 60.0, clock_fn: Optional[Callable[[], float]] = None):
         if not vision_client.is_local:
             raise ValueError(
                 "ScreenWatcher requires a local vision_client - raw screen "
@@ -98,6 +116,8 @@ def _spectacle_instance_running() -> bool:
         self.interval = interval
         self.clock_fn = clock_fn or time.monotonic
         self.last_capture_time = 0.0
+        self._last_frame_signature = None
+        self._last_describe_time = 0.0
         self.last_text = ""
         self.last_changed = False
         # Which backend last succeeded / how it last failed. Diagnostic only,
@@ -129,6 +149,12 @@ def _spectacle_instance_running() -> bool:
             for program, argv in self.CAPTURE_CHAIN:
                 if shutil.which(program) is None:
                     continue
+                if program == "spectacle" and _spectacle_instance_running():
+                    # Treat a live Spectacle as "this backend is busy": invoking it would
+                    # be forwarded into the user's window and close it. Fall through
+                    # instead - the next tick captures normally once it is closed.
+                    errors.append("spectacle: skipped (an instance is open)")
+                    continue
                 out_arg = argv[-1].format(out=shot_path)
                 run_argv = [out_arg if a == "{out}" else a for a in argv]
                 try:
@@ -148,12 +174,6 @@ def _spectacle_instance_running() -> bool:
                         data = f.read()
                 except OSError as e:
                     errors.append(f"{program}: {e}")
-                    continue
-                if program == "spectacle" and _spectacle_instance_running():
-                    # Treat a live Spectacle as "this backend is busy": invoking it would
-                    # be forwarded into the user's window and close it. Fall through
-                    # instead - the next tick captures normally once it is closed.
-                    errors.append("spectacle: skipped (an instance is open)")
                     continue
                 if not data:
                     errors.append(f"{program}: empty file")
@@ -181,14 +201,68 @@ def _spectacle_instance_running() -> bool:
         if not image_b64:
             return False
 
+        # Nothing new on screen: keep the description she already has and skip
+        # the vision round trip, so the model is free to leave VRAM instead of
+        # being kept resident by a tick that would only re-describe the same
+        # pixels. Skipping does NOT mean the model is pinned - Ollama unloads
+        # it once keep_alive (set by the caller) lapses with no new request.
+        signature = self._frame_signature(image_b64)
+        stale = (now - self._last_describe_time) >= self.STALE_AFTER_S
+        changed = signature is not None and self._is_significant_frame_change(
+            self._last_frame_signature, signature)
+        if signature is not None:
+            self._last_frame_signature = signature
+        if not changed and not stale:
+            self.last_changed = False
+            return False
+
         description = await self.vision_client.describe_image(image_b64, REDACTION_PROMPT)
         if description.startswith("Error:"):
             logger.warning(f"Vision description failed: {description}")
             return False
+        self._last_describe_time = now
 
         self.last_changed = self._is_significant_change(self.last_text, description)
         self.last_text = description
         return True
+
+    @staticmethod
+    def _frame_signature(image_b64: str):
+        """A cheap, comparable fingerprint of one captured frame.
+
+        A 64x36 greyscale thumbnail as raw bytes, so a cursor blink or a
+        clock's minute hand cannot by itself cost a vision-model round trip.
+        Falls back to the encoded frame itself when Pillow is absent, which
+        makes the comparison an exact-bytes test.
+        """
+        if Image is None:
+            return image_b64
+        try:
+            with Image.open(io.BytesIO(base64.b64decode(image_b64))) as im:
+                return im.convert("L").resize(ScreenWatcher.SIGNATURE_SIZE).tobytes()
+        except Exception as e:
+            # A frame that cannot be decoded cannot be compared either. Saying
+            # None ("unknown") rather than returning the encoded bytes matters:
+            # two undecodable frames always differ byte-wise, so a byte
+            # fallback would buy a vision round trip on every single tick.
+            # maybe_capture reads None as no-change; the staleness ceiling is
+            # what still guarantees she looks periodically.
+            logger.warning(f"Frame signature failed: {e!s}")
+            return None
+
+    @classmethod
+    def _is_significant_frame_change(cls, old, new,
+                                     threshold: Optional[float] = None) -> bool:
+        """True when `new` differs enough from `old` to be worth describing."""
+        if old is None or new is None:
+            return True
+        if isinstance(old, str) or isinstance(new, str):
+            return old != new
+        if len(old) != len(new):
+            return True
+        limit = cls.FRAME_CHANGE_THRESHOLD if threshold is None else threshold
+        changed = sum(1 for a, b in zip(old, new) if abs(a - b) > 12)
+        return (changed / len(old)) >= limit
 
     @staticmethod
     def _is_significant_change(old: str, new: str, threshold: float = 0.35) -> bool:

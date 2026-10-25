@@ -13,11 +13,18 @@ class LLMClient:
     happens to be running on. Her personality, memory, and goals live in
     agents/sarah_identity.md and the personality/memory modules, not here.
     """
-    def __init__(self, base_url="http://localhost:11434", model="deepseek-v4-flash:cloud", api_type="ollama", num_ctx: int = None):
+    def __init__(self, base_url="http://localhost:11434", model="deepseek-v4-flash:cloud",
+                 api_type="ollama", num_ctx: int = None, keep_alive=None):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_type = api_type.lower()
         self.num_ctx = num_ctx  # Ollama context window, in tokens; None = model default
+        # How long Ollama keeps this model resident in VRAM after a request
+        # ("60s", a number of seconds, or 0 to unload straight away). None =
+        # Ollama's server default (5 minutes) - which a caller that ticks more
+        # often than that refills forever, leaving a model on the GPU that
+        # nobody is using. See modules/perception/screen_watcher.py.
+        self.keep_alive = keep_alive
 
     @classmethod
     def from_node_config(cls) -> "LLMClient":
@@ -82,6 +89,8 @@ class LLMClient:
             if self.api_type == "ollama":
                 url = f"{self.base_url}/api/generate"
                 payload = {"model": self.model, "prompt": prompt, "stream": False}
+                if self.keep_alive is not None:
+                    payload["keep_alive"] = self.keep_alive
                 if self.num_ctx:
                     payload["options"] = {"num_ctx": self.num_ctx}
                 response = requests.post(url, json=payload, timeout=30)
@@ -125,6 +134,8 @@ class LLMClient:
                 raise ValueError("Vision generation currently only supports api_type='ollama'.")
             url = f"{self.base_url}/api/generate"
             payload = {"model": self.model, "prompt": prompt, "images": [image_b64], "stream": False}
+            if self.keep_alive is not None:
+                payload["keep_alive"] = self.keep_alive
             if self.num_ctx:
                 payload["options"] = {"num_ctx": self.num_ctx}
             response = requests.post(url, json=payload, timeout=120)
